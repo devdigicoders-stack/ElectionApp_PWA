@@ -1,37 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import { toast } from 'react-toastify';
+import { api } from '../services/api';
+import { useTenant } from '../context/TenantContext';
+import { getMediaUrl } from '../utils/mediaUrl';
 
 export default function PhotoGalleryPage() {
   const navigate = useNavigate();
+  const { primaryColor, secondaryColor } = useTenant();
   const [activeTab, setActiveTab] = useState('All');
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photos, setPhotos] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const tabs = ['All', 'Rallies', 'Development', 'People'];
+  const tabs = ['All', 'Rallies', 'Development', 'Public Chaupal', 'Welfare Drives'];
 
-  const photos = [
-    { id: 1, category: 'Rallies', url: 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=400', height: 'h-64' },
-    { id: 2, category: 'Development', url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400', height: 'h-40' },
-    { id: 3, category: 'People', url: 'https://images.unsplash.com/photo-1514574972183-11b30521e483?auto=format&fit=crop&q=80&w=400', height: 'h-48' },
-    { id: 4, category: 'Rallies', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=400', height: 'h-56' },
-    { id: 5, category: 'Development', url: 'https://images.unsplash.com/photo-1532375810565-c0ba94c93ebc?auto=format&fit=crop&q=80&w=400', height: 'h-64' },
-    { id: 6, category: 'People', url: 'https://images.unsplash.com/photo-1525013066836-c6090f0ad9d8?auto=format&fit=crop&q=80&w=400', height: 'h-40' }
-  ];
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      try {
+        setIsLoading(true);
+        const params = { type: 'photo' };
+        if (activeTab !== 'All') {
+          params.category = activeTab;
+        }
+        const res = await api.getGallery(params).catch(() => []);
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        if (list.length > 0) {
+          const formatted = list.map((item, idx) => ({
+            id: item._id || item.id || idx + 1,
+            category: item.category || 'General',
+            title: item.title || 'Event Photo',
+            date: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+            url: getMediaUrl(item.imageUrl || item.url),
+            height: idx % 3 === 0 ? 'h-64' : (idx % 2 === 0 ? 'h-48' : 'h-56')
+          }));
+          setPhotos(formatted);
+        } else {
+          setPhotos([]);
+        }
+      } catch (err) {
+        console.warn('Gallery fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPhotos();
+  }, [activeTab]);
 
   const filteredPhotos = activeTab === 'All' 
     ? photos 
     : photos.filter(p => p.category === activeTab);
 
+  const handleShare = (photo) => {
+    if (navigator.share) {
+      navigator.share({
+        title: photo.title,
+        text: `${photo.title} - ${photo.date}`,
+        url: window.location.href,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(photo.url);
+      toast.success('Photo link copied to clipboard!');
+    }
+  };
+
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
       
       {/* Header */}
-      <div className="flex items-center px-4 py-4 shrink-0 bg-white shadow-sm z-20">
-        <button onClick={() => navigate(-1)} className="text-gray-800 p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-xl font-extrabold text-[#1e293b] ml-1 tracking-wide">Photo Gallery</h1>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">Photo Gallery</h1>
+            <p className="text-[10px] font-semibold text-gray-500 truncate">Memories, events and community drives</p>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -40,28 +92,128 @@ export default function PhotoGalleryPage() {
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeTab === tab ? 'bg-[#0f172a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === tab ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            style={activeTab === tab ? { backgroundColor: primaryColor } : {}}
           >
             {tab}
           </button>
         ))}
       </div>
 
-      {/* Masonry Grid Content */}
+      {/* Grid Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
-        <div className="columns-2 gap-4 space-y-4 pb-6">
-          {filteredPhotos.map((photo) => (
-            <div key={photo.id} className={`w-full rounded-2xl overflow-hidden break-inside-avoid relative group active:scale-[0.98] transition-transform ${photo.height}`}>
-              <img src={photo.url} alt="Gallery item" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                <span className="text-white text-xs font-bold">{photo.category}</span>
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div 
+              className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
+            ></div>
+          </div>
+        ) : filteredPhotos.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3.5 pb-6">
+            {filteredPhotos.map((photo) => (
+              <div 
+                key={photo.id} 
+                onClick={() => setSelectedPhoto(photo)}
+                className="w-full rounded-2xl overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-sm border border-gray-100 bg-white flex flex-col group hover:shadow-md"
+              >
+                {/* Image Container with contain mode so full logo/photo is 100% visible */}
+                <div className="w-full h-36 bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
+                  <img 
+                    src={photo.url} 
+                    alt={photo.title} 
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                  />
+                  <div className="absolute top-2 left-2">
+                    <span 
+                      className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-md text-white shadow-xs"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {photo.category}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Footer Details */}
+                <div className="p-3 bg-white border-t border-gray-50 flex flex-col">
+                  <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-1 group-hover:text-primary transition-colors">
+                    {photo.title}
+                  </p>
+                  <span className="text-[10px] text-gray-400 font-semibold mt-1">
+                    {photo.date}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
+            <p className="text-gray-500 font-bold text-sm">No photos found in this category.</p>
+          </div>
+        )}
       </div>
+
+      {/* Fullscreen Lightbox Modal */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between p-4 backdrop-blur-md animate-fade-in">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between text-white pt-2">
+            <div className="flex flex-col">
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{selectedPhoto.category}</span>
+              <span className="text-xs text-gray-300">{selectedPhoto.date}</span>
+            </div>
+            <button 
+              onClick={() => setSelectedPhoto(null)} 
+              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Center Image */}
+          <div className="flex-1 flex items-center justify-center py-4">
+            <img 
+              src={selectedPhoto.url} 
+              alt={selectedPhoto.title} 
+              className="max-h-[70vh] max-w-full rounded-2xl object-contain shadow-2xl" 
+            />
+          </div>
+
+          {/* Bottom Bar Details & Actions */}
+          <div className="flex flex-col gap-3 pb-4">
+            <h3 className="text-white font-bold text-sm text-center">{selectedPhoto.title}</h3>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => handleShare(selectedPhoto)}
+                className="flex-1 py-3 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-opacity hover:opacity-90 shadow-lg"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                Share Photo
+              </button>
+              <a 
+                href={selectedPhoto.url}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                HD View
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
   );
 }
+

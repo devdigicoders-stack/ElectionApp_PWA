@@ -1,158 +1,166 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import { 
+  HiUser, 
+  HiBell, 
+  HiChartBar, 
+  HiFolderOpen, 
+  HiNewspaper, 
+  HiPhoto, 
+  HiVideoCamera, 
+  HiShieldCheck, 
+  HiDocumentText, 
+  HiIdentification, 
+  HiHandRaised, 
+  HiDocumentDuplicate, 
+  HiPaintBrush, 
+  HiMapPin, 
+  HiLanguage,
+  HiChevronRight
+} from 'react-icons/hi2';
+import { toast } from 'react-toastify';
 
 export default function MenuPage() {
   const navigate = useNavigate();
+  const [language, setLanguage] = useState('hi'); // 'hi' | 'en'
+
+  const toggleLanguage = () => {
+    const nextLang = language === 'hi' ? 'en' : 'hi';
+    setLanguage(nextLang);
+    toast.success(`Language set to ${nextLang === 'hi' ? 'हिंदी (Hindi)' : 'English'}`);
+  };
 
   const menuSections = [
     {
-      title: 'My Account',
+      title: 'Profile & Identity',
       items: [
         {
           id: 'profile',
           title: 'My Profile',
-          subtitle: 'View & edit your profile',
+          subtitle: 'View member ID & details',
           path: '/my-profile',
           bgColor: 'bg-orange-50',
-          iconColor: 'text-[#f37920]',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          )
+          icon: <HiUser className="w-5 h-5 text-[#f37920]" />
         },
         {
-          id: 'notifications',
-          title: 'Notifications',
-          subtitle: 'Manage your alerts',
-          path: '/notifications',
+          id: 'membership',
+          title: 'Party Membership',
+          subtitle: 'Digital card & verification QR',
+          path: '/membership',
           bgColor: 'bg-blue-50',
-          iconColor: 'text-blue-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-          )
+          icon: <HiIdentification className="w-5 h-5 text-blue-600" />
+        },
+        {
+          id: 'volunteer',
+          title: 'Volunteer / Karyakarta',
+          subtitle: 'Tasks, leaderboard & drives',
+          path: '/volunteer',
+          bgColor: 'bg-indigo-50',
+          icon: <HiHandRaised className="w-5 h-5 text-indigo-600" />
         }
       ]
     },
     {
-      title: 'Services',
+      title: 'Citizen Services',
       items: [
         {
-          id: 'polls',
-          title: 'Public Polls',
-          subtitle: 'Vote on public matters',
-          path: '/polls',
-          bgColor: 'bg-purple-50',
-          iconColor: 'text-purple-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          )
-        },
-        {
-          id: 'complaint',
-          title: 'Jan Samasya',
-          subtitle: 'Submit a complaint',
-          path: '/complaint',
-          bgColor: 'bg-red-50',
-          iconColor: 'text-red-500',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          )
+          id: 'area',
+          title: 'My Area & Development',
+          subtitle: 'Track local constituency works',
+          path: '/my-area',
+          bgColor: 'bg-emerald-50',
+          icon: <HiMapPin className="w-5 h-5 text-emerald-600" />
         },
         {
           id: 'my-complaints',
-          title: 'My Complaints',
-          subtitle: 'Track your complaints',
+          title: 'Jan Samasya (Complaints)',
+          subtitle: 'Track status & file grievances',
           path: '/my-complaints',
           bgColor: 'bg-amber-50',
-          iconColor: 'text-amber-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          )
+          icon: <HiFolderOpen className="w-5 h-5 text-amber-600" />
+        },
+        {
+          id: 'polls',
+          title: 'Public Polls',
+          subtitle: 'Vote on public policies',
+          path: '/polls',
+          bgColor: 'bg-purple-50',
+          icon: <HiChartBar className="w-5 h-5 text-purple-600" />
+        },
+        {
+          id: 'manifesto',
+          title: 'Sankalp Patra (Manifesto)',
+          subtitle: 'Vision & delivery tracker',
+          path: '/manifesto',
+          bgColor: 'bg-rose-50',
+          icon: <HiDocumentDuplicate className="w-5 h-5 text-rose-600" />
         }
       ]
     },
     {
-      title: 'Media',
+      title: 'Media & Updates',
       items: [
         {
           id: 'latest',
           title: 'Latest Updates',
-          subtitle: 'News & announcements',
+          subtitle: 'News, press & announcements',
           path: '/latest-updates',
-          bgColor: 'bg-green-50',
-          iconColor: 'text-green-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-            </svg>
-          )
+          bgColor: 'bg-teal-50',
+          icon: <HiNewspaper className="w-5 h-5 text-teal-600" />
         },
         {
           id: 'photo',
           title: 'Photo Gallery',
-          subtitle: 'Browse all photos',
+          subtitle: 'High definition rally albums',
           path: '/photo-gallery',
           bgColor: 'bg-pink-50',
-          iconColor: 'text-pink-500',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          )
+          icon: <HiPhoto className="w-5 h-5 text-pink-600" />
+        },
+        {
+          id: 'poster',
+          title: 'Festival Poster Studio',
+          subtitle: 'Generate photo greeting cards',
+          path: '/poster-generator',
+          bgColor: 'bg-amber-50',
+          icon: <HiPaintBrush className="w-5 h-5 text-amber-600" />
         },
         {
           id: 'video',
           title: 'Video Gallery',
-          subtitle: 'Watch speeches & events',
+          subtitle: 'Speeches, clips & interviews',
           path: '/video-gallery',
-          bgColor: 'bg-indigo-50',
-          iconColor: 'text-indigo-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.871v6.258a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          )
+          bgColor: 'bg-violet-50',
+          icon: <HiVideoCamera className="w-5 h-5 text-violet-600" />
         }
       ]
     },
     {
-      title: 'Legal',
+      title: 'Preferences & Legal',
       items: [
+        {
+          id: 'notifications',
+          title: 'Notifications & Alerts',
+          subtitle: 'Manage announcement alerts',
+          path: '/notifications',
+          bgColor: 'bg-slate-100',
+          icon: <HiBell className="w-5 h-5 text-slate-700" />
+        },
         {
           id: 'privacy',
           title: 'Privacy Policy',
-          subtitle: '',
+          subtitle: 'Data protection standards',
           path: '/privacy-policy',
-          bgColor: 'bg-gray-100',
-          iconColor: 'text-gray-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          )
+          bgColor: 'bg-slate-100',
+          icon: <HiShieldCheck className="w-5 h-5 text-slate-700" />
         },
         {
           id: 'terms',
           title: 'Terms & Conditions',
-          subtitle: '',
+          subtitle: 'Usage guidelines & terms',
           path: '/terms-conditions',
-          bgColor: 'bg-gray-100',
-          iconColor: 'text-gray-600',
-          icon: (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          )
+          bgColor: 'bg-slate-100',
+          icon: <HiDocumentText className="w-5 h-5 text-slate-700" />
         }
       ]
     }
@@ -161,56 +169,65 @@ export default function MenuPage() {
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
       
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 shrink-0 bg-white shadow-sm z-20">
-        <div className="flex flex-col">
-          <h1 className="text-xl font-extrabold text-[#1e293b] leading-tight">Menu</h1>
-          <p className="text-xs font-semibold text-gray-400">All features & settings</p>
-        </div>
-        {/* Profile Avatar - tap to go to profile */}
-        <div
-          onClick={() => navigate('/my-profile')}
-          className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-[#f37920] transition-all"
-        >
-          <svg className="w-6 h-6 text-gray-400 mt-1" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-          </svg>
+      {/* Crisp White Header */}
+      <div className="bg-white border-b border-gray-100 px-4 pt-3.5 pb-3 shadow-xs shrink-0 z-20">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-black text-[#0f172a] leading-tight">All Features & Menu</h1>
+            <p className="text-[0.7rem] font-semibold text-gray-400">BJP Jansampark Portal</p>
+          </div>
+          
+          {/* Language Toggle Pill */}
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[#f37920] text-xs font-black active:scale-95 transition-all"
+          >
+            <HiLanguage className="w-4 h-4" />
+            <span>{language === 'hi' ? 'हिंदी' : 'English'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto w-full px-4 py-5">
-        <div className="flex flex-col gap-6 pb-4">
-          {menuSections.map((section) => (
-            <div key={section.title}>
-              <h2 className="text-xs font-extrabold uppercase tracking-widest text-gray-400 mb-3 px-1">{section.title}</h2>
+      {/* Menu List */}
+      <div className="flex-1 overflow-y-auto w-full p-4">
+        <div className="flex flex-col gap-5 pb-6">
+          {menuSections.map((section, idx) => (
+            <div key={idx}>
+              <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2 px-1">
+                {section.title}
+              </h2>
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                {section.items.map((item, idx) => (
+                {section.items.map((item, itemIdx) => (
                   <div
                     key={item.id}
-                    onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-4 px-4 py-3.5 cursor-pointer active:bg-gray-50 transition-colors ${idx !== section.items.length - 1 ? 'border-b border-gray-100' : ''}`}
+                    onClick={() => item.path && navigate(item.path)}
+                    className={`flex items-center justify-between p-3.5 cursor-pointer active:bg-gray-50 transition-colors ${
+                      itemIdx !== section.items.length - 1 ? 'border-b border-gray-100' : ''
+                    }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl ${item.bgColor} flex items-center justify-center shrink-0 ${item.iconColor}`}>
-                      {item.icon}
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-10 h-10 rounded-xl ${item.bgColor} flex items-center justify-center shrink-0`}>
+                        {item.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-gray-900">{item.title}</h4>
+                        {item.subtitle && (
+                          <p className="text-[0.65rem] font-semibold text-gray-400 mt-0.5">{item.subtitle}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="font-extrabold text-[#1e293b] text-sm">{item.title}</span>
-                      {item.subtitle && (
-                        <span className="text-xs font-semibold text-gray-400 mt-0.5">{item.subtitle}</span>
-                      )}
-                    </div>
-                    <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
+                    <HiChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                   </div>
                 ))}
               </div>
             </div>
           ))}
 
-          {/* App Version */}
-          <p className="text-center text-xs font-semibold text-gray-400 pb-2">BJP Jansampark v1.0.0</p>
+          {/* App Version Info */}
+          <div className="text-center pt-2">
+            <p className="text-xs font-extrabold text-gray-400">BJP Jansampark PWA</p>
+            <p className="text-[0.65rem] font-semibold text-gray-400 mt-0.5">Version 2.4.0 • Viksit Bharat Initiative</p>
+          </div>
         </div>
       </div>
 

@@ -1,154 +1,153 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-
-const worksData = [
-  {
-    id: 1,
-    title: 'New Highway Project',
-    longTitle: 'Four Lane Highway Project',
-    location: 'Varanasi, Uttar Pradesh',
-    shortLocation: 'Varanasi, UP',
-    status: 'Completed',
-    statusColor: 'bg-green-100 text-green-700',
-    image: '/highway_project.jpg',
-    category: 'Road Infrastructure',
-    startDate: '12 Jan 2023',
-    endDate: '30 Dec 2024',
-    description: 'A 4 lane highway to improve connectivity and boost local economy in the region.'
-  },
-  {
-    id: 2,
-    title: 'Government School',
-    longTitle: 'Sarvodaya Government School Renovation',
-    location: 'Lucknow, Uttar Pradesh',
-    shortLocation: 'Lucknow, UP',
-    status: 'In Progress',
-    statusColor: 'bg-blue-100 text-blue-700',
-    image: '/govt_school.jpg',
-    category: 'Education Infrastructure',
-    startDate: '01 Mar 2024',
-    endDate: '15 Aug 2024',
-    description: 'Complete renovation of the main building with smart classrooms and new sports facilities.'
-  },
-  {
-    id: 3,
-    title: 'Water Supply Scheme',
-    longTitle: 'Jal Jeevan Water Supply Scheme',
-    location: 'Kanpur, Uttar Pradesh',
-    shortLocation: 'Kanpur, UP',
-    status: 'Completed',
-    statusColor: 'bg-green-100 text-green-700',
-    image: '/water_supply.jpg',
-    category: 'Public Health',
-    startDate: '10 Feb 2023',
-    endDate: '20 Jan 2024',
-    description: 'New water purification plant ensuring clean drinking water to over 50,000 households.'
-  },
-  {
-    id: 4,
-    title: 'Community Health Center',
-    longTitle: 'Modern Community Health Center',
-    location: 'Agra, Uttar Pradesh',
-    shortLocation: 'Agra, UP',
-    status: 'Ongoing',
-    statusColor: 'bg-blue-100 text-blue-700',
-    image: '/health_center.jpg',
-    category: 'Healthcare Infrastructure',
-    startDate: '05 May 2024',
-    endDate: 'Expected early 2025',
-    description: 'A multi-specialty community health center to provide affordable and accessible healthcare.'
-  }
-];
+import { HiArrowLeft } from 'react-icons/hi2';
+import { toast } from 'react-toastify';
+import { api } from '../services/api';
+import { useTenant } from '../context/TenantContext';
 
 export default function WorkDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { primaryColor, secondaryColor } = useTenant();
   const [activeTab, setActiveTab] = useState('Details');
+  const [work, setWork] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const work = worksData.find(w => w.id === parseInt(id)) || worksData[0];
-
-  const handleShare = async () => {
-    if (navigator.share) {
+  useEffect(() => {
+    const fetchWork = async () => {
       try {
-        await navigator.share({
-          title: work.longTitle,
-          text: `Check out this project: ${work.longTitle} in ${work.location}`,
-          url: window.location.href,
-        });
-      } catch (error) {
-        console.log('Error sharing', error);
+        setIsLoading(true);
+        const data = await api.getWorkById(id).catch(() => null);
+        if (data) {
+          setWork(data);
+        } else {
+          // Fallback fetch all to find match
+          const list = await api.getWorks().catch(() => []);
+          const worksList = Array.isArray(list) ? list : (list?.data || []);
+          const found = worksList.find(w => (w._id || w.id) === id);
+          setWork(found || null);
+        }
+      } catch (err) {
+        console.warn('Error fetching work details:', err);
+      } finally {
+        setIsLoading(false);
       }
+    };
+
+    if (id) fetchWork();
+  }, [id]);
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: work?.title || 'Development Work',
+        text: `Check out: ${work?.title}`,
+        url: window.location.href,
+      }).catch(() => {});
     } else {
-      alert('Share feature is not supported on this browser.');
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard!');
     }
   };
 
-  return (
-    <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden pb-[80px]">
-      
-      {/* Banner Section with Back Arrow */}
-      <div className="relative w-full aspect-[4/3] bg-gray-200 shrink-0 overflow-hidden sm:rounded-b-3xl">
-        <img src={work.image} alt={work.title} className="w-full h-full object-cover" />
-        
-        {/* Top Overlay Gradient for Back Button Visibility */}
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/50 to-transparent"></div>
+  if (isLoading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <div 
+          className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
+        ></div>
+      </div>
+    );
+  }
 
-        {/* Back Button & Audio Icon (Mock) */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-          <button onClick={() => navigate(-1)} className="p-2 text-white hover:bg-white/20 rounded-full backdrop-blur-sm transition-colors">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
+  if (!work) {
+    return (
+      <div className="w-full h-screen flex flex-col items-center justify-center bg-white p-6 text-center">
+        <h2 className="text-lg font-bold text-gray-800 mb-2">Work record not found</h2>
+        <button 
+          onClick={() => navigate(-1)} 
+          className="px-4 py-2 text-white rounded-xl text-xs font-bold"
+          style={{ backgroundColor: primaryColor }}
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  const isCompleted = String(work.status || '').toLowerCase().includes('complete');
+  const statusColor = isCompleted ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700';
+
+  return (
+    <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden pb-24">
+      
+      {/* Top App Bar */}
+      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            <HiArrowLeft className="w-5 h-5" />
           </button>
-          <button className="p-2 text-white bg-white/20 rounded-full backdrop-blur-md hover:bg-white/30 transition-colors">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" />
-              <path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" />
-            </svg>
-          </button>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">
+            {work.title}
+          </h1>
         </div>
+        <button onClick={handleShare} className="text-gray-500 p-2 hover:opacity-80 active:scale-95 transition-all" style={{ color: primaryColor }}>
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto w-full px-5 py-6">
+      <div className="flex-1 overflow-y-auto w-full custom-scrollbar p-5">
         
-        {/* Header Info */}
-        <div className="flex justify-between items-start mb-4">
-          <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide ${work.statusColor}`}>
-            {work.status}
+        {/* Main Image */}
+        <div className="relative w-full aspect-video bg-gray-100 rounded-2xl overflow-hidden mb-5 shadow-sm">
+          <img 
+            src={work.coverImageUrl || work.imageUrl || work.image || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=600'} 
+            alt={work.title} 
+            className="w-full h-full object-cover" 
+          />
+          <div className="absolute top-3 right-3">
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow-sm ${statusColor}`}>
+              {work.status || 'In Progress'}
+            </span>
+          </div>
+        </div>
+
+        {/* Title and Category */}
+        <div className="mb-4">
+          <span 
+            className="text-[0.68rem] font-bold uppercase tracking-wider block mb-1"
+            style={{ color: primaryColor }}
+          >
+            {work.category || 'Development Work'}
           </span>
-          <button onClick={handleShare} className="text-gray-400 p-1 hover:text-[#f37920] transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-          </button>
+          <h2 className="text-xl font-extrabold text-gray-900 leading-snug">
+            {work.title}
+          </h2>
         </div>
 
-        <h1 className="text-2xl font-extrabold text-gray-900 leading-tight mb-2">
-          {work.longTitle}
-        </h1>
-
-        <div className="flex items-center text-gray-500 mb-4 text-sm font-semibold">
-          <svg className="w-4 h-4 mr-1.5 text-[#f37920]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          {work.location}
-        </div>
-
-        {/* Dates */}
-        <div className="flex items-center gap-6 mb-6">
-          <div className="flex items-center text-sm font-bold text-gray-600">
-            <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        {/* Location & Dates */}
+        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-2xl mb-6 border border-gray-100">
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+            <svg className="w-4 h-4 shrink-0" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            {work.startDate}
+            <span>{work.location || work.area?.name || 'Local Area'}</span>
           </div>
-          <div className="flex items-center text-sm font-bold text-gray-600">
-            <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {work.endDate}
-          </div>
+          {work.startDate && (
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+              <svg className="w-4 h-4 shrink-0" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>Started: {new Date(work.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -157,7 +156,8 @@ export default function WorkDetailsPage() {
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-[0.8rem] sm:text-sm font-bold py-2.5 px-1 rounded-lg transition-all ${activeTab === tab ? 'bg-white text-[#f37920] shadow-sm border border-orange-100' : 'text-gray-600 hover:text-gray-800'}`}
+              className={`flex-1 text-[0.8rem] sm:text-sm font-bold py-2 px-1 rounded-lg transition-all ${activeTab === tab ? 'bg-white shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+              style={activeTab === tab ? { color: primaryColor } : {}}
             >
               {tab}
             </button>
@@ -166,39 +166,72 @@ export default function WorkDetailsPage() {
 
         {/* Tab Content: Details */}
         {activeTab === 'Details' && (
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h3 className="text-lg font-bold text-[#1e293b] mb-2">Description</h3>
-            <p className="text-[0.95rem] text-gray-600 font-medium leading-relaxed mb-6">
-              {work.description}
+          <div className="space-y-4">
+            <h3 className="text-sm font-extrabold text-gray-900">Project Overview</h3>
+            <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
+              {work.description || work.shortDescription || 'Development work is being actively monitored for high quality completion.'}
             </p>
 
-            <div className="border-t border-gray-100 pt-5 space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">Category</span>
-                <span className="font-bold text-gray-800">{work.category}</span>
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="flex justify-between items-center text-xs font-semibold">
+                <span className="text-gray-500">Category</span>
+                <span className="font-bold text-gray-800">{work.category || 'Infrastructure'}</span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">Area</span>
-                <span className="font-bold text-gray-800">{work.shortLocation}</span>
+              <div className="flex justify-between items-center text-xs font-semibold">
+                <span className="text-gray-500">Beneficiary Area</span>
+                <span className="font-bold text-gray-800">{work.location || work.area?.name || 'Constituency'}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tab Content: Gallery */}
+        {activeTab === 'Gallery' && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {(work.images && work.images.length > 0 ? work.images : [work.coverImageUrl || work.image]).filter(Boolean).map((imgUrl, i) => (
+              <div key={i} className="aspect-video rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                <img src={imgUrl} alt={`Photo ${i+1}`} className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tab Content: Before / After */}
+        {activeTab === 'Before/After' && (
+          <div className="flex flex-col gap-4">
+            {work.beforeImageUrl ? (
+              <div className="rounded-2xl overflow-hidden border border-gray-200">
+                <div className="bg-gray-100 px-3 py-1.5 text-[0.68rem] font-bold text-gray-700">Before Work</div>
+                <img src={work.beforeImageUrl} alt="Before" className="w-full aspect-video object-cover" />
+              </div>
+            ) : null}
+            {work.afterImageUrl ? (
+              <div className="rounded-2xl overflow-hidden border border-gray-200">
+                <div className="bg-green-100 px-3 py-1.5 text-[0.68rem] font-bold text-green-800">After Completion</div>
+                <img src={work.afterImageUrl} alt="After" className="w-full aspect-video object-cover" />
+              </div>
+            ) : null}
+            {!work.beforeImageUrl && !work.afterImageUrl && (
+              <div className="py-8 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                Before / After photo verification will be posted soon.
+              </div>
+            )}
           </div>
         )}
 
       </div>
 
       {/* Bottom Share Bar */}
-      <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-4 pb-safe z-30 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] flex gap-3">
-        <button onClick={handleShare} className="w-14 h-14 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-2xl flex items-center justify-center transition-colors shrink-0">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-          </svg>
-        </button>
-        <button onClick={handleShare} className="flex-1 bg-[#0f5132] hover:bg-[#0c4128] text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-green-900/20">
+      <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-4 pb-safe z-30 shadow-md flex gap-3">
+        <button 
+          onClick={handleShare} 
+          className="flex-1 text-white rounded-2xl font-bold text-sm py-3.5 flex items-center justify-center gap-2 active:scale-[0.98] shadow-lg"
+          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor || primaryColor})` }}
+        >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
           </svg>
-          Share
+          <span>Share Progress</span>
         </button>
       </div>
 

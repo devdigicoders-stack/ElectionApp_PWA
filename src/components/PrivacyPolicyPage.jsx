@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HiArrowLeft } from 'react-icons/hi2';
 
 export default function PrivacyPolicyPage() {
   const navigate = useNavigate();
@@ -8,13 +9,18 @@ export default function PrivacyPolicyPage() {
     <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden">
       
       {/* App Bar */}
-      <div className="flex items-center px-4 py-4 shrink-0 bg-white border-b border-gray-100 z-20">
-        <button onClick={() => navigate(-1)} className="text-gray-800 p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-xl font-extrabold text-[#1e293b] ml-1 tracking-wide">Privacy Policy</h1>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">
+            Privacy Policy
+          </h1>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto w-full p-6">

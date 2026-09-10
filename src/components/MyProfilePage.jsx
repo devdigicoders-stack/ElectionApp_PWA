@@ -1,189 +1,329 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import { storage } from '../services/storage';
+import { api } from '../services/api';
+import { useTenant } from '../context/TenantContext';
+import UserAvatar from './UserAvatar';
+import { 
+  HiArrowLeft, 
+  HiUser, 
+  HiMapPin, 
+  HiPencilSquare, 
+  HiIdentification, 
+  HiHandRaised, 
+  HiBell, 
+  HiShieldCheck, 
+  HiDocumentText, 
+  HiArrowRightOnRectangle,
+  HiChevronRight,
+  HiCheckBadge,
+  HiSparkles,
+  HiFolderOpen,
+  HiCalendarDays,
+  HiChartBar
+} from 'react-icons/hi2';
+import { toast } from 'react-toastify';
 
 export default function MyProfilePage() {
   const navigate = useNavigate();
+  const { primaryColor, secondaryColor } = useTenant();
+  const [profileData, setProfileData] = useState(null);
+  const [user, setUser] = useState({
+    name: 'Citizen',
+    mobile: '',
+    district: '',
+    assembly: '',
+  });
 
-  const menuItems = [
+  const [stats, setStats] = useState({
+    complaints: 0,
+    events: 0,
+    polls: 0
+  });
+
+  useEffect(() => {
+    // Initial load from local storage
+    const localUser = storage.getUser();
+    if (localUser) setUser(localUser);
+
+    // Fetch live citizen profile from backend
+    const loadCitizenProfile = async () => {
+      try {
+        if (localUser?._id) {
+          const u = await api.getUserById(localUser._id).catch(() => null);
+          if (u) {
+            const updated = {
+              ...localUser,
+              ...u,
+              assembly: u.areaId?.name || localUser.assembly || ''
+            };
+            setUser(updated);
+            storage.setUser(updated);
+          }
+        }
+      } catch (err) {
+        console.warn('Profile load info:', err);
+      }
+    };
+
+    loadCitizenProfile();
+  }, []);
+
+  const menuSections = [
     {
-      id: 'area',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-[#f37920]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
-      ),
-      title: 'My Area',
-      subtitle: 'Lucknow, UP'
+      title: 'Engagement & Membership',
+      items: [
+        {
+          id: 'membership',
+          path: '/membership',
+          icon: <HiIdentification className="w-5 h-5" style={{ color: primaryColor }} />,
+          bg: 'bg-orange-50',
+          title: 'Party Membership Card',
+          subtitle: user?.membership?.membershipNumber 
+            ? `ID: ${user.membership.membershipNumber} (${user.membership.status || 'Active'})`
+            : 'Digital ID & Verification QR'
+        },
+        {
+          id: 'volunteer',
+          path: '/volunteer',
+          icon: <HiHandRaised className="w-5 h-5 text-indigo-600" />,
+          bg: 'bg-indigo-50',
+          title: 'Karyakarta / Volunteer Profile',
+          subtitle: user?.volunteer?.role 
+            ? `${user.volunteer.role} (${user.volunteer.status || 'Active'})` 
+            : 'Tasks, Badges & Leaderboard'
+        },
+        {
+          id: 'area',
+          path: '/my-area',
+          icon: <HiMapPin className="w-5 h-5 text-emerald-600" />,
+          bg: 'bg-emerald-50',
+          title: 'My Area & Development',
+          subtitle: user.assembly || user.district || 'View Area Information'
+        }
+      ]
     },
     {
-      id: 'edit',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-        </div>
-      ),
-      title: 'Edit Profile'
+      title: 'Activity & Services',
+      items: [
+        {
+          id: 'complaints',
+          path: '/my-complaints',
+          icon: <HiFolderOpen className="w-5 h-5 text-amber-600" />,
+          bg: 'bg-amber-50',
+          title: 'My Complaints (Jan Samasya)',
+          subtitle: `${stats.complaints} Tickets Raised`
+        },
+        {
+          id: 'events',
+          path: '/events',
+          icon: <HiCalendarDays className="w-5 h-5 text-blue-600" />,
+          bg: 'bg-blue-50',
+          title: 'Events & Programs',
+          subtitle: `${stats.events} Events Registered`
+        },
+        {
+          id: 'polls',
+          path: '/polls',
+          icon: <HiChartBar className="w-5 h-5 text-purple-600" />,
+          bg: 'bg-purple-50',
+          title: 'Public Polls Participation',
+          subtitle: `${stats.polls} Polls Participated`
+        }
+      ]
     },
     {
-      id: 'notifications',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-        </div>
-      ),
-      title: 'Notifications'
-    },
-    {
-      id: 'language',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-          </svg>
-        </div>
-      ),
-      title: 'Language',
-      subtitle: 'English'
-    },
-    {
-      id: 'privacy',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        </div>
-      ),
-      title: 'Privacy Policy'
-    },
-    {
-      id: 'terms',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-      ),
-      title: 'Terms & Conditions'
-    },
-    {
-      id: 'about',
-      icon: (
-        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center shrink-0">
-          <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-      ),
-      title: 'About App',
-      subtitle: 'v1.0.0'
+      title: 'Account Settings',
+      items: [
+        {
+          id: 'edit',
+          path: '/register',
+          icon: <HiPencilSquare className="w-5 h-5 text-slate-700" />,
+          bg: 'bg-slate-100',
+          title: 'Edit Area & Profile Details',
+          subtitle: 'Update personal or area information'
+        },
+        {
+          id: 'notifications',
+          path: '/notifications',
+          icon: <HiBell className="w-5 h-5 text-slate-700" />,
+          bg: 'bg-slate-100',
+          title: 'Notifications & Alerts',
+          subtitle: 'Manage announcement preferences'
+        },
+        {
+          id: 'privacy',
+          path: '/privacy-policy',
+          icon: <HiShieldCheck className="w-5 h-5 text-slate-700" />,
+          bg: 'bg-slate-100',
+          title: 'Privacy Policy',
+          subtitle: 'Data security & privacy guidelines'
+        },
+        {
+          id: 'terms',
+          path: '/terms-conditions',
+          icon: <HiDocumentText className="w-5 h-5 text-slate-700" />,
+          bg: 'bg-slate-100',
+          title: 'Terms & Conditions',
+          subtitle: 'Platform terms & guidelines'
+        }
+      ]
     }
   ];
 
+  const handleLogout = () => {
+    storage.clear();
+    toast.info('Logged out successfully');
+    navigate('/login');
+  };
+
   return (
-    <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden pb-[72px]">
+    <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
       
-      {/* App Bar */}
-      <div className="flex justify-between items-center px-4 py-4 shrink-0 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] z-20">
-        <div className="flex items-center">
-          <button onClick={() => navigate(-1)} className="text-gray-800 p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
+      {/* Top Header - Tenant Themed Sticky */}
+      <div 
+        className="shrink-0 px-4 py-3 relative overflow-hidden z-30 shadow-xs"
+        style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor || primaryColor})` }}
+      >
+        <div className="flex items-center justify-between relative z-10 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <button 
+              onClick={() => navigate(-1)} 
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 active:scale-95 transition-all text-white shrink-0"
+            >
+              <HiArrowLeft className="w-5 h-5 text-white" />
+            </button>
+            <h1 className="text-base font-black text-white tracking-tight truncate">
+              My Profile
+            </h1>
+          </div>
+          <button 
+            onClick={() => navigate('/register')} 
+            className="text-xs font-bold text-white bg-white/20 hover:bg-white/30 px-3.5 py-1.5 rounded-xl backdrop-blur-xs active:scale-95 transition-all shrink-0"
+          >
+            Edit
           </button>
-          <h1 className="text-xl font-extrabold text-[#1e293b] ml-1 tracking-wide">My Profile</h1>
         </div>
-        <button className="text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto w-full relative">
-        <div className="p-5 flex flex-col gap-4">
-          
-          {/* User Info Header */}
-          <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-            <div className="w-16 h-16 rounded-full border-2 border-green-500 p-0.5 shrink-0 overflow-hidden">
-              <img src="/profile_avatar.jpg" alt="Profile" className="w-full h-full rounded-full object-cover" />
-            </div>
-            <div className="flex flex-col">
-              <h2 className="text-xl font-extrabold text-[#1e293b] leading-tight mb-1">Gaurav Kumar</h2>
-              <p className="text-gray-500 font-semibold text-sm mb-2">+91 98765 43210</p>
-              <div>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-[0.7rem] font-bold tracking-wide bg-green-100 text-green-700">
-                  Active Member
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Menu Items List */}
-          <div className="flex flex-col">
-            {menuItems.map((item, idx) => {
-              const handleMenuClick = () => {
-                if (item.id === 'edit') navigate('/profile');
-                if (item.id === 'notifications') navigate('/notifications');
-                if (item.id === 'privacy') navigate('/privacy-policy');
-                if (item.id === 'terms') navigate('/terms-conditions');
-                if (item.id === 'complaints') navigate('/my-complaints');
-                if (item.id === 'photo') navigate('/photo-gallery');
-                if (item.id === 'video') navigate('/video-gallery');
-              };
-
-              return (
-              <div 
-                key={item.id} 
-                onClick={handleMenuClick}
-                className={`flex items-center justify-between py-3 cursor-pointer active:bg-gray-50 transition-colors ${idx !== menuItems.length - 1 ? 'border-b border-gray-100' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  {item.icon}
-                  <div className="flex flex-col">
-                    <span className="font-extrabold text-[#1e293b] text-[0.95rem]">{item.title}</span>
-                    {item.id === 'area' && item.subtitle && (
-                      <span className="text-xs font-semibold text-gray-500 mt-0.5">{item.subtitle}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {item.id !== 'area' && item.subtitle && (
-                    <span className="text-xs font-semibold text-gray-500">{item.subtitle}</span>
-                  )}
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-
-          {/* Logout Button */}
-          <div className="pt-4 pb-6">
-            <button 
-              onClick={() => navigate('/login')}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-red-50 text-red-600 font-bold text-[1.05rem] hover:bg-red-100 transition-colors"
+      {/* Main Scrollable Content */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 relative z-10">
+        
+        {/* Profile Card */}
+        <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-4">
+          <div className="flex items-center gap-3.5">
+            <div 
+              className="w-16 h-16 rounded-2xl border-2 p-0.5 shrink-0 overflow-hidden bg-white shadow-xs"
+              style={{ borderColor: primaryColor }}
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </button>
+              <UserAvatar 
+                src={user?.photo} 
+                name={user?.name} 
+                className="w-full h-full" 
+                iconClassName="w-8 h-8"
+                roundedClassName="rounded-xl" 
+              />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <h2 className="text-base font-black text-gray-900 truncate">{user.name || 'Citizen User'}</h2>
+                {user.isProfileComplete && <HiCheckBadge className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />}
+              </div>
+              {user.mobile && (
+                <p className="text-xs text-gray-500 font-semibold mb-1.5">+91 {user.mobile}</p>
+              )}
+              
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span 
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[0.65rem] font-extrabold border"
+                  style={{ 
+                    backgroundColor: `${primaryColor}15`, 
+                    color: primaryColor,
+                    borderColor: `${primaryColor}30`
+                  }}
+                >
+                  <HiSparkles className="w-3 h-3" />
+                  <span>{user.category === 'volunteer' ? 'Karyakarta' : 'Verified Citizen'}</span>
+                </span>
+                {user.assembly && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-gray-100 text-gray-600 truncate max-w-[180px]">
+                    {user.assembly}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
+          {/* Activity Counters Row */}
+          <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100 text-center">
+            <div 
+              onClick={() => navigate('/my-complaints')}
+              className="rounded-2xl p-2 cursor-pointer active:scale-95 transition-all border"
+              style={{ backgroundColor: `${primaryColor}0D`, borderColor: `${primaryColor}20` }}
+            >
+              <p className="text-base font-black" style={{ color: primaryColor }}>{stats.complaints}</p>
+              <p className="text-[0.65rem] text-gray-600 font-bold">Complaints</p>
+            </div>
+            <div 
+              onClick={() => navigate('/events')}
+              className="bg-blue-50/50 border border-blue-100 rounded-2xl p-2 cursor-pointer hover:bg-blue-50 active:scale-95 transition-all"
+            >
+              <p className="text-base font-black text-blue-600">{stats.events}</p>
+              <p className="text-[0.65rem] text-gray-600 font-bold">Events RSVP</p>
+            </div>
+            <div 
+              onClick={() => navigate('/polls')}
+              className="bg-purple-50/50 border border-purple-100 rounded-2xl p-2 cursor-pointer hover:bg-purple-50 active:scale-95 transition-all"
+            >
+              <p className="text-base font-black text-purple-600">{stats.polls}</p>
+              <p className="text-[0.65rem] text-gray-600 font-bold">Polls Voted</p>
+            </div>
+          </div>
         </div>
+
+
+        {/* Menu Sections List */}
+        <div className="flex flex-col gap-4 pb-4">
+          {menuSections.map((section, idx) => (
+            <div key={idx}>
+              <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2 px-1">{section.title}</h3>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {section.items.map((item, itemIdx) => (
+                  <div
+                    key={item.id}
+                    onClick={() => item.path && navigate(item.path)}
+                    className={`flex items-center justify-between p-3.5 cursor-pointer active:bg-gray-50 transition-colors ${
+                      itemIdx !== section.items.length - 1 ? 'border-b border-gray-100' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
+                        {item.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-gray-900">{item.title}</h4>
+                        <p className="text-[0.65rem] font-semibold text-gray-400 mt-0.5">{item.subtitle}</p>
+                      </div>
+                    </div>
+                    <HiChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Logout Action */}
+          <button
+            onClick={handleLogout}
+            className="w-full py-3.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl text-xs font-black shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 mb-6"
+          >
+            <HiArrowRightOnRectangle className="w-4 h-4 stroke-[2.5]" />
+            <span>Sign Out / Log Out</span>
+          </button>
+        </div>
+
       </div>
 
       <BottomNav />

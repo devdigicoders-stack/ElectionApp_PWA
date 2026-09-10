@@ -1,17 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { storage } from '../services/storage';
+import { useTenant } from '../context/TenantContext';
+import { HiArrowLeft } from 'react-icons/hi2';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { primaryColor } = useTenant();
   const [formData, setFormData] = useState({
     fullName: '',
     mobile: '',
     dob: '',
     gender: '',
     area: '',
-    role: ''
+    role: '',
+    photo: null
   });
   const [photoPreview, setPhotoPreview] = useState(null);
+
+  useEffect(() => {
+    const user = storage.getUser();
+    if (user) {
+      setFormData({
+        fullName: user.name || user.fullName || '',
+        mobile: user.mobile || '',
+        dob: user.dob || '',
+        gender: user.gender || '',
+        area: user.district ? `${user.district}, ${user.vidhanSabha || user.assembly || ''}` : '',
+        role: user.role || 'Supporter',
+        photo: user.photo || null
+      });
+      if (user.photo) {
+        setPhotoPreview(user.photo);
+      }
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -20,42 +44,67 @@ export default function ProfilePage() {
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setPhotoPreview(imageUrl);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+        setFormData(prev => ({ ...prev, photo: reader.result }));
+      };
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleSave = (e) => {
+    e?.preventDefault();
+    const currentUser = storage.getUser() || {};
+    const updatedUser = {
+      ...currentUser,
+      name: formData.fullName,
+      fullName: formData.fullName,
+      mobile: formData.mobile,
+      dob: formData.dob,
+      gender: formData.gender,
+      role: formData.role,
+      photo: formData.photo || photoPreview,
+      isProfileComplete: true
+    };
+    storage.setUser(updatedUser);
+    toast.success('Profile updated successfully!');
+    navigate(-1);
   };
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden">
       
-      {/* Header */}
-      <div className="flex items-center px-4 py-4 shrink-0 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] z-20">
-        <button onClick={() => navigate(-1)} className="text-gray-800 p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="ml-1">
-          <h1 className="text-xl font-extrabold text-[#1e293b] leading-tight">Edit Profile</h1>
-          <p className="text-xs font-semibold text-gray-400">Update your personal information</p>
+      {/* Top App Bar */}
+      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">
+            Edit Profile
+          </h1>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col px-6 pt-6 pb-6 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-5 py-6 flex flex-col">
         
-        {/* Upload Photo */}
-        <div className="flex flex-col items-center mb-8 shrink-0">
-          <label className="flex flex-col items-center cursor-pointer">
-            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-2 shadow-inner overflow-hidden relative">
+        {/* Photo Upload Section */}
+        <div className="flex flex-col items-center mb-6">
+          <label className="relative cursor-pointer flex flex-col items-center gap-2">
+            <div className="w-24 h-24 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors">
               {photoPreview ? (
-                <img src={photoPreview} alt="Profile Preview" className="w-full h-full object-cover" />
+                <img src={photoPreview} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
                 <svg className="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                 </svg>
               )}
             </div>
-            <span className="text-xs font-bold text-gray-700">Upload Photo</span>
+            <span className="text-xs font-bold" style={{ color: primaryColor }}>Change Photo</span>
             <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           </label>
         </div>
@@ -63,7 +112,6 @@ export default function ProfilePage() {
         {/* Form Fields */}
         <form className="flex-1 flex flex-col gap-5">
           
-          {/* Full Name */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">
               Full Name <span className="text-red-500">*</span>
@@ -74,17 +122,17 @@ export default function ProfilePage() {
               placeholder="Enter your name"
               value={formData.fullName}
               onChange={handleChange}
-              className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:border-[#f37920] focus:ring-1 focus:ring-[#f37920] transition-all"
+              className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 placeholder:text-gray-400 transition-all focus:ring-1"
+              style={{ focusBorderColor: primaryColor, focusRingColor: primaryColor }}
             />
           </div>
 
-          {/* Mobile Number */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">
               Mobile Number <span className="text-red-500">*</span>
             </label>
             <div className="flex">
-              <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-gray-200 bg-gray-50 text-gray-500 sm:text-sm font-semibold">
+              <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-gray-200 bg-gray-50 text-gray-500 text-sm font-semibold">
                 +91
               </span>
               <input
@@ -94,114 +142,76 @@ export default function ProfilePage() {
                 value={formData.mobile}
                 onChange={handleChange}
                 maxLength="10"
-                className="w-full h-12 px-4 border border-gray-200 rounded-r-xl bg-white outline-none text-sm font-semibold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:border-[#f37920] focus:ring-1 focus:ring-[#f37920] transition-all"
+                className="w-full h-12 px-4 border border-gray-200 rounded-r-xl bg-white outline-none text-sm font-semibold text-gray-800 placeholder:text-gray-400 transition-all focus:ring-1"
+                style={{ focusBorderColor: primaryColor, focusRingColor: primaryColor }}
               />
             </div>
           </div>
 
-          {/* Date of Birth */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">Date of Birth</label>
-            <div className="relative w-full">
-              <input
-                type="date"
-                name="dob"
-                value={formData.dob}
-                onChange={handleChange}
-                className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:border-[#f37920] focus:ring-1 focus:ring-[#f37920] transition-all appearance-none"
-                style={{ color: formData.dob ? '#1f2937' : '#9ca3af' }}
-              />
-            </div>
+            <input
+              type="date"
+              name="dob"
+              value={formData.dob}
+              onChange={handleChange}
+              className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 transition-all appearance-none focus:ring-1"
+              style={{ color: formData.dob ? '#1f2937' : '#9ca3af', focusBorderColor: primaryColor, focusRingColor: primaryColor }}
+            />
           </div>
 
-          {/* Gender */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-2">Gender</label>
             <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  value="Male"
-                  checked={formData.gender === 'Male'}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-[#f37920] border-gray-300 focus:ring-[#f37920] accent-[#f37920]"
-                />
-                <span className="text-sm font-semibold text-gray-800">Male</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  value="Female"
-                  checked={formData.gender === 'Female'}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-[#f37920] border-gray-300 focus:ring-[#f37920] accent-[#f37920]"
-                />
-                <span className="text-sm font-semibold text-gray-800">Female</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  value="Other"
-                  checked={formData.gender === 'Other'}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-[#f37920] border-gray-300 focus:ring-[#f37920] accent-[#f37920]"
-                />
-                <span className="text-sm font-semibold text-gray-800">Other</span>
-              </label>
+              {['Male', 'Female', 'Other'].map(g => (
+                <label key={g} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value={g}
+                    checked={formData.gender === g}
+                    onChange={handleChange}
+                    className="w-4 h-4"
+                    style={{ accentColor: primaryColor }}
+                  />
+                  <span className="text-sm font-semibold text-gray-800">{g}</span>
+                </label>
+              ))}
             </div>
           </div>
 
-          {/* Select Your Area */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">Select Your Area</label>
-            <div className="relative w-full">
-              <select
-                name="area"
-                value={formData.area}
-                onChange={handleChange}
-                className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 focus:border-[#f37920] focus:ring-1 focus:ring-[#f37920] transition-all appearance-none"
-                style={{ color: formData.area ? '#1f2937' : '#9ca3af' }}
-              >
-                <option value="" disabled hidden>Select State/Area</option>
-                <option value="Delhi" className="text-gray-800">Delhi</option>
-                <option value="Maharashtra" className="text-gray-800">Maharashtra</option>
-                <option value="Uttar Pradesh" className="text-gray-800">Uttar Pradesh</option>
-                <option value="Gujarat" className="text-gray-800">Gujarat</option>
-              </select>
-              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <select
+              name="area"
+              value={formData.area}
+              onChange={handleChange}
+              className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 transition-all appearance-none focus:ring-1"
+              style={{ color: formData.area ? '#1f2937' : '#9ca3af', focusBorderColor: primaryColor, focusRingColor: primaryColor }}
+            >
+              <option value="" disabled hidden>Select State/Area</option>
+              <option value="Delhi">Delhi</option>
+              <option value="Maharashtra">Maharashtra</option>
+              <option value="Uttar Pradesh">Uttar Pradesh</option>
+              <option value="Gujarat">Gujarat</option>
+            </select>
           </div>
 
-          {/* Select Role */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">Your Role / Designation</label>
-            <div className="relative w-full">
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 focus:border-[#f37920] focus:ring-1 focus:ring-[#f37920] transition-all appearance-none"
-                style={{ color: formData.role ? '#1f2937' : '#9ca3af' }}
-              >
-                <option value="" disabled hidden>Select your role</option>
-                <option value="Supporter" className="text-gray-800">Supporter</option>
-                <option value="Volunteer" className="text-gray-800">Volunteer</option>
-                <option value="Party Worker" className="text-gray-800">Party Worker</option>
-                <option value="Leader" className="text-gray-800">Local Leader</option>
-              </select>
-              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-white outline-none text-sm font-semibold text-gray-800 transition-all appearance-none focus:ring-1"
+              style={{ color: formData.role ? '#1f2937' : '#9ca3af', focusBorderColor: primaryColor, focusRingColor: primaryColor }}
+            >
+              <option value="" disabled hidden>Select your role</option>
+              <option value="Supporter">Supporter</option>
+              <option value="Volunteer">Volunteer</option>
+              <option value="Party Worker">Party Worker</option>
+              <option value="Leader">Local Leader</option>
+            </select>
           </div>
 
         </form>
@@ -209,8 +219,9 @@ export default function ProfilePage() {
         {/* Save Button */}
         <div className="mt-8 shrink-0 pb-4">
           <button
-            onClick={() => navigate('/my-profile')}
-            className="w-full h-14 bg-[#f37920] hover:bg-[#e25d14] text-white font-bold text-lg rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center active:scale-[0.98]"
+            onClick={handleSave}
+            className="w-full h-14 text-white font-bold text-lg rounded-xl shadow-md transition-all flex items-center justify-center active:scale-[0.98]"
+            style={{ backgroundColor: primaryColor }}
           >
             Save Changes
           </button>

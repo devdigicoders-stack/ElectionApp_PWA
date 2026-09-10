@@ -1,67 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import { api } from '../services/api';
+import { useTenant } from '../context/TenantContext';
 
 export default function DevelopmentPage() {
   const navigate = useNavigate();
+  const { primaryColor, secondaryColor } = useTenant();
   const [activeFilter, setActiveFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [works, setWorks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filters = ['All', 'Road', 'Education', 'Health'];
+  const filters = ['All', 'Road', 'Education', 'Health', 'Electricity', 'Water', 'Infrastructure'];
 
-  const works = [
-    {
-      id: 1,
-      title: 'New Highway Project',
-      location: 'Varanasi, UP',
-      status: 'Completed',
-      statusColor: 'bg-green-100 text-green-700',
-      image: '/highway_project.jpg',
-      category: 'Road'
-    },
-    {
-      id: 2,
-      title: 'Government School',
-      location: 'Lucknow, UP',
-      status: 'In Progress',
-      statusColor: 'bg-blue-100 text-blue-700',
-      image: '/govt_school.jpg',
-      category: 'Education'
-    },
-    {
-      id: 3,
-      title: 'Water Supply Scheme',
-      location: 'Kanpur, UP',
-      status: 'Completed',
-      statusColor: 'bg-green-100 text-green-700',
-      image: '/water_supply.jpg',
-      category: 'Health' // Approximating category for water supply
-    },
-    {
-      id: 4,
-      title: 'Community Health Center',
-      location: 'Agra, UP',
-      status: 'Ongoing',
-      statusColor: 'bg-blue-100 text-blue-700',
-      image: '/health_center.jpg',
-      category: 'Health'
+  useEffect(() => {
+    const fetchWorks = async () => {
+      try {
+        setIsLoading(true);
+        const params = {};
+        if (activeFilter !== 'All') {
+          params.category = activeFilter;
+        }
+        const res = await api.getWorks(params).catch(() => []);
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        setWorks(list);
+      } catch (err) {
+        console.warn('Error fetching works:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWorks();
+  }, [activeFilter]);
+
+  const filteredWorks = works.filter((w) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (w.title && w.title.toLowerCase().includes(q)) ||
+      (w.description && w.description.toLowerCase().includes(q)) ||
+      (w.area?.name && w.area.name.toLowerCase().includes(q)) ||
+      (w.category && w.category.toLowerCase().includes(q))
+    );
+  });
+
+  const getStatusBadge = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s.includes('complete')) {
+      return { label: 'Completed', color: 'bg-green-100 text-green-700' };
     }
-  ];
-
-  const filteredWorks = activeFilter === 'All' 
-    ? works 
-    : works.filter(w => w.category === activeFilter);
+    if (s.includes('progress') || s.includes('ongoing')) {
+      return { label: 'In Progress', color: 'bg-blue-100 text-blue-700' };
+    }
+    return { label: 'Planned / Proposed', color: 'bg-purple-100 text-purple-700' };
+  };
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
       
       {/* Top App Bar */}
-      <div className="flex items-center px-5 py-4 shrink-0 bg-white shadow-sm z-20">
-        <button onClick={() => navigate(-1)} className="text-gray-800 p-1 -ml-1">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-xl font-extrabold text-[#1e293b] ml-3 tracking-wide">Development Works</h1>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">
+            Development Works (विकास कार्य)
+          </h1>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto w-full relative">
@@ -76,8 +88,11 @@ export default function DevelopmentPage() {
             </div>
             <input
               type="text"
-              className="block w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#f37920] focus:border-[#f37920] sm:text-sm font-medium transition-shadow shadow-sm"
-              placeholder="Search works..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none sm:text-sm font-medium transition-shadow shadow-sm"
+              style={{ outlineColor: primaryColor }}
+              placeholder="Search development works..."
             />
           </div>
 
@@ -87,11 +102,12 @@ export default function DevelopmentPage() {
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`shrink-0 px-5 py-2 rounded-xl text-sm font-bold transition-all ${
+                className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                   activeFilter === filter 
-                    ? 'bg-[#f37920] text-white shadow-md shadow-orange-500/20' 
+                    ? 'text-white shadow-md' 
                     : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}
+                style={activeFilter === filter ? { backgroundColor: primaryColor } : {}}
               >
                 {filter}
               </button>
@@ -99,33 +115,61 @@ export default function DevelopmentPage() {
           </div>
 
           {/* Works List */}
-          <div className="flex flex-col gap-4">
-            {filteredWorks.map((work) => (
+          {isLoading ? (
+            <div className="flex justify-center py-12">
               <div 
-                key={work.id} 
-                onClick={() => navigate(`/works/${work.id}`)}
-                className="bg-white rounded-2xl p-3 flex gap-4 shadow-sm border border-gray-100 items-center cursor-pointer transition-transform active:scale-[0.98] hover:shadow-md"
-              >
-                {/* Image */}
-                <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                  <img src={work.image} alt={work.title} className="w-full h-full object-cover" />
-                </div>
-                
-                {/* Details */}
-                <div className="flex flex-col flex-1 py-1">
-                  <h3 className="text-[1.05rem] font-bold text-gray-900 leading-tight mb-1">{work.title}</h3>
-                  <p className="text-[0.8rem] text-gray-500 font-semibold mb-3">{work.location}</p>
-                  
-                  {/* Badge */}
-                  <div className="mt-auto">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[0.7rem] font-bold tracking-wide ${work.statusColor}`}>
-                      {work.status}
-                    </span>
+                className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
+                style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
+              ></div>
+            </div>
+          ) : filteredWorks.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {filteredWorks.map((work) => {
+                const badge = getStatusBadge(work.status);
+                const workId = work._id || work.id;
+                return (
+                  <div 
+                    key={workId} 
+                    onClick={() => navigate(`/works/${workId}`)}
+                    className="bg-white rounded-2xl p-3.5 flex gap-4 shadow-sm border border-gray-100 items-center cursor-pointer transition-transform active:scale-[0.98] hover:shadow-md hover:border-gray-300"
+                  >
+                    {/* Image */}
+                    <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative">
+                      <img 
+                        src={work.coverImageUrl || work.imageUrl || work.image || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400'} 
+                        alt={work.title} 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    
+                    {/* Details */}
+                    <div className="flex flex-col flex-1 py-1 min-w-0">
+                      <span 
+                        className="text-[0.62rem] font-bold uppercase tracking-wider mb-0.5"
+                        style={{ color: primaryColor }}
+                      >
+                        {work.category || 'Development'}
+                      </span>
+                      <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{work.title}</h3>
+                      <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.location || work.area?.name || 'Local Area'}</p>
+                      
+                      {/* Badge */}
+                      <div className="mt-auto">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[0.65rem] font-bold tracking-wide ${badge.color}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-12 text-center bg-white rounded-2xl border border-dashed border-gray-200 p-6">
+              <p className="text-sm font-bold text-gray-700 mb-1">No development works found</p>
+              <p className="text-xs text-gray-400">Try changing your search or category filter.</p>
+            </div>
+          )}
 
         </div>
       </div>
@@ -134,3 +178,4 @@ export default function DevelopmentPage() {
     </div>
   );
 }
+

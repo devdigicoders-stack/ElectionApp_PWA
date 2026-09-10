@@ -1,15 +1,25 @@
-
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import SplashPage from './components/SplashPage';
-import OnboardingPage from './components/OnboardingPage';
-import LoginPage from './components/LoginPage';
-import ProfilePage from './components/ProfilePage';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ScrollToTop from './components/ScrollToTop';
+import LoadingSpinner from './components/LoadingSpinner';
+import RegistrationPage from './components/RegistrationPage';
+import MyAreaPage from './components/MyAreaPage';
+import VolunteerPage from './components/VolunteerPage';
+import MembershipPage from './components/MembershipPage';
+import ManifestoPage from './components/ManifestoPage';
+import SearchPage from './components/SearchPage';
+import PosterGeneratorPage from './components/PosterGeneratorPage';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { TenantProvider } from './context/TenantContext';
+// Page components (existing)
 import HomePage from './components/HomePage';
+import LoginPage from './components/LoginPage';
 import AboutPage from './components/AboutPage';
 import DevelopmentPage from './components/DevelopmentPage';
 import WorkDetailsPage from './components/WorkDetailsPage';
 import EventsPage from './components/EventsPage';
+import EventDetailsPage from './components/EventDetailsPage';
 import MyProfilePage from './components/MyProfilePage';
 import NotificationsPage from './components/NotificationsPage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
@@ -21,43 +31,60 @@ import PhotoGalleryPage from './components/PhotoGalleryPage';
 import VideoGalleryPage from './components/VideoGalleryPage';
 import LatestUpdatesPage from './components/LatestUpdatesPage';
 import MenuPage from './components/MenuPage';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import InstallPWAButton from './components/InstallPWAButton';
 
-function App() {
+// Placeholder component for future pages
+const Placeholder = ({ name }) => (
+  <div className="flex items-center justify-center h-full text-xl text-gray-500 p-8">
+    {name} – Coming Soon
+  </div>
+);
+
+export default function App() {
   return (
-    <BrowserRouter>
-      <main className="w-full min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="w-full max-w-md bg-white min-h-screen shadow-2xl relative overflow-hidden flex flex-col">
-          <ToastContainer position="top-center" autoClose={3000} hideProgressBar />
-          <Routes>
-            <Route path="/" element={<SplashPage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/works" element={<DevelopmentPage />} />
-            <Route path="/works/:id" element={<WorkDetailsPage />} />
-            <Route path="/events" element={<EventsPage />} />
-            <Route path="/my-profile" element={<MyProfilePage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/terms-conditions" element={<TermsPage />} />
-            <Route path="/polls" element={<PollsPage />} />
-            <Route path="/complaint" element={<ComplaintPage />} />
-            <Route path="/my-complaints" element={<MyComplaintsPage />} />
-            <Route path="/photo-gallery" element={<PhotoGalleryPage />} />
-            <Route path="/video-gallery" element={<VideoGalleryPage />} />
-            <Route path="/latest-updates" element={<LatestUpdatesPage />} />
-            <Route path="/menu" element={<MenuPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+    <TenantProvider>
+      <Router>
+        <ScrollToTop />
+        <div className="flex flex-col min-h-screen bg-[#f8fafc]">
+          <ToastContainer position="top-center" autoClose={2000} hideProgressBar theme="colored" />
+          {/* Main content */}
+          <div className="flex-1 overflow-y-auto">
+            <Routes>
+              <Route path="/" element={<Navigate to="/home" replace />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/works" element={<DevelopmentPage />} />
+              <Route path="/works/:id" element={<WorkDetailsPage />} />
+              <Route path="/events" element={<EventsPage />} />
+              <Route path="/events/:id" element={<EventDetailsPage />} />
+              <Route path="/register" element={<RegistrationPage />} />
+              <Route path="/my-profile" element={<MyProfilePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms-conditions" element={<TermsPage />} />
+              <Route path="/polls" element={<PollsPage />} />
+              <Route path="/complaint" element={<ComplaintPage />} />
+              <Route path="/my-complaints" element={<MyComplaintsPage />} />
+              <Route path="/photo-gallery" element={<PhotoGalleryPage />} />
+              <Route path="/video-gallery" element={<VideoGalleryPage />} />
+              <Route path="/latest-updates" element={<LatestUpdatesPage />} />
+              <Route path="/menu" element={<MenuPage />} />
+              {/* Future feature placeholders */}
+              <Route path="/membership" element={<MembershipPage />} />
+              <Route path="/volunteer" element={<VolunteerPage />} />
+              <Route path="/manifesto" element={<ManifestoPage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/my-area" element={<MyAreaPage />} />
+              <Route path="/poster-generator" element={<PosterGeneratorPage />} />
+              {/* Catch‑all */}
+              <Route path="*" element={<Placeholder name="404 Not Found" />} />
+            </Routes>
+          </div>
+          {/* Floating PWA Install Prompt Button for browser users */}
+          <InstallPWAButton />
         </div>
-      </main>
-    </BrowserRouter>
+      </Router>
+    </TenantProvider>
   );
 }
-
-export default App;
-

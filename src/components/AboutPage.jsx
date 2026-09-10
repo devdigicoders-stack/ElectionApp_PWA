@@ -1,48 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import { FaStar } from 'react-icons/fa6';
+import { api } from '../services/api';
+import { useTenant } from '../context/TenantContext';
 
 export default function AboutPage() {
   const navigate = useNavigate();
+  const { primaryColor, secondaryColor, tenantConfig: contextTenantConfig } = useTenant();
   const [activeTab, setActiveTab] = useState('Overview');
+  const [leader, setLeader] = useState(null);
+  const [tenantConfig, setTenantConfig] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const currentSlug = api.getTenantSlug();
+    if (!currentSlug) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchLeader = async () => {
+      try {
+        setIsLoading(true);
+        const [leaderRes, configRes] = await Promise.all([
+          api.getAboutLeader().catch(() => null),
+          api.getConfig().catch(() => null)
+        ]);
+
+        if (leaderRes) setLeader(leaderRes);
+        if (configRes) setTenantConfig(configRes);
+      } catch (err) {
+        console.warn('Error fetching leader bio:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLeader();
+  }, []);
+
+  const config = tenantConfig || contextTenantConfig;
+  const leaderName = leader?.name || config?.branding?.leaderName || 'जन प्रतिनिधि';
+  const designation = leader?.designation || 'Leader / Public Representative';
+  const bio = leader?.bio || leader?.shortBio || config?.branding?.tagline || 'समर्पित जन सेवा, सर्वांगीण विकास और जन-कल्याण हमारा मुख्य उद्देश्य है।';
+  const photoUrl = leader?.photoUrl || config?.branding?.leaderPhotoUrl || '/profile_avatar.jpg';
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden pb-[72px]">
       
       {/* Top Header */}
-      <div className="flex items-center px-4 py-3 shrink-0 bg-white z-20 shadow-sm relative">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-800 hover:text-[#f37920] transition-colors rounded-full">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </button>
-        <h1 className="text-lg font-bold text-gray-900 ml-2">About Narendra Modi</h1>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">
+            About {leaderName}
+          </h1>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
         
         {/* Banner Section */}
         <div className="relative w-full aspect-[4/3] bg-gray-200 shrink-0 overflow-hidden sm:rounded-b-3xl">
-          <img src="https://images.unsplash.com/photo-1532375810565-c0ba94c93ebc?auto=format&fit=crop&q=80&w=800" alt="Leader Banner" className="w-full h-full object-cover object-top" />
-          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-            {/* Play Button Mockup */}
-            <button className="w-14 h-14 bg-black/50 border-2 border-white/80 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-black/70 transition-colors">
-              <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
+          <img 
+            src={leader?.bannerUrl || photoUrl} 
+            alt={leaderName} 
+            className="w-full h-full object-cover object-top" 
+            onError={(e) => { e.target.src = '/profile_avatar.jpg'; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end p-5">
+            <div className="text-white">
+              <span 
+                className="text-white text-[0.65rem] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {designation}
+              </span>
+              <h2 className="text-lg font-black mt-1 leading-tight">{leaderName}</h2>
+            </div>
           </div>
         </div>
 
         <div className="px-5 py-6">
           
           {/* Tabs */}
-          <div className="flex bg-gray-100 p-1 mb-6">
+          <div className="flex bg-gray-100 p-1 mb-6 rounded-xl">
             {['Overview', 'Journey', 'Vision'].map((tab) => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-sm font-bold py-2 transition-all ${activeTab === tab ? 'bg-[#f37920] text-white shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                className={`flex-1 text-sm font-bold py-2 rounded-lg transition-all ${activeTab === tab ? 'text-white shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                style={activeTab === tab ? { backgroundColor: primaryColor } : {}}
               >
                 {tab}
               </button>
@@ -52,36 +107,39 @@ export default function AboutPage() {
           {/* Tab Content: Overview */}
           {activeTab === 'Overview' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h2 className="text-xl font-extrabold text-gray-900 leading-tight">Shri Narendra Modi</h2>
-              <p className="text-sm font-bold text-gray-500 mb-4">Prime Minister of India</p>
+              <h2 className="text-xl font-extrabold text-gray-900 leading-tight">{leaderName}</h2>
+              <p className="text-sm font-bold text-gray-500 mb-4">{designation}</p>
 
               <p className="text-sm text-gray-700 leading-relaxed font-medium mb-6">
-                A leader with a vision for a stronger, developed and self-reliant India. His dedication towards nation building continues to inspire millions. Under his leadership, the country has seen unprecedented growth and development across all sectors.
+                {bio}
               </p>
 
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-3 mb-6">
                 <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-100 shadow-sm">
-                  <span className="text-xl font-black text-[#f37920]">70+</span>
+                  <span className="text-xl font-black" style={{ color: primaryColor }}>70+</span>
                   <span className="text-[0.65rem] font-bold text-gray-500 text-center uppercase tracking-wider mt-1">Awards</span>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-100 shadow-sm">
-                  <span className="text-xl font-black text-[#f37920]">20+</span>
+                  <span className="text-xl font-black" style={{ color: primaryColor }}>20+</span>
                   <span className="text-[0.65rem] font-bold text-gray-500 text-center uppercase tracking-wider mt-1">Years of Service</span>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-100 shadow-sm">
-                  <span className="text-xl font-black text-[#f37920]">1</span>
+                  <span className="text-xl font-black" style={{ color: primaryColor }}>1</span>
                   <span className="text-[0.65rem] font-bold text-gray-500 text-center uppercase tracking-wider mt-1">Vision</span>
                   <span className="text-[0.6rem] font-semibold text-gray-400 text-center leading-none mt-0.5">Viksit Bharat</span>
                 </div>
               </div>
 
               {/* Quote Block */}
-              <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100/50 mb-6 relative overflow-hidden">
-                <svg className="absolute -top-2 -left-2 w-16 h-16 text-orange-200/50 transform -scale-x-100" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                </svg>
-                <p className="relative z-10 text-[0.95rem] font-extrabold text-[#d84315] italic leading-snug text-center">
+              <div 
+                className="rounded-2xl p-5 border mb-6 relative overflow-hidden"
+                style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}25` }}
+              >
+                <p 
+                  className="relative z-10 text-[0.95rem] font-extrabold italic leading-snug text-center"
+                  style={{ color: primaryColor }}
+                >
                   "Sabka Saath, Sabka Vikas,<br/>Sabka Vishwas, Sabka Prayas"
                 </p>
               </div>
@@ -90,12 +148,15 @@ export default function AboutPage() {
               <div className="space-y-4 pb-8">
                 <h3 className="font-bold text-gray-900">Key Achievements</h3>
                 {[
-                  { title: "Digital India", desc: "Empowering every citizen with technology." },
-                  { title: "Make in India", desc: "Transforming India into a global manufacturing hub." },
-                  { title: "Swachh Bharat", desc: "A clean and green nation for all." }
+                  { title: "Digital Governance", desc: "Empowering every citizen with transparent technology services." },
+                  { title: "Infrastructure & Roads", desc: "Transforming the constituency into a high-connectivity hub." },
+                  { title: "Clean & Green Living", desc: "Sustainable cleanliness drives and public health parks for all." }
                 ].map((item, i) => (
                   <div key={i} className="flex gap-3 items-start">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                    >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
@@ -112,21 +173,70 @@ export default function AboutPage() {
 
           {/* Tab Content: Journey */}
           {activeTab === 'Journey' && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 min-h-[300px]">
-              <h2 className="text-xl font-extrabold text-gray-900 leading-tight mb-4">A Lifetime of Service</h2>
-              <p className="text-sm text-gray-600 font-medium leading-relaxed">
-                From humble beginnings in Vadnagar to the highest office in the country, the journey has been marked by unwavering dedication and hard work.
-              </p>
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h2 className="text-xl font-extrabold text-gray-900 leading-tight mb-2">Political & Public Journey</h2>
+              <p className="text-xs text-gray-500 font-semibold mb-6">Key milestones in lifetime dedication to the people</p>
+
+              <div className="flex flex-col gap-6 relative pl-3">
+                <div className="absolute left-[19px] top-3 bottom-3 w-0.5 bg-gray-200"></div>
+
+                {(leader?.journey || [
+                  { year: '2001', title: 'Grassroots Social Worker', desc: 'Started welfare drives for local farmers and rural children in constituency.' },
+                  { year: '2012', title: 'Public Representative', desc: 'Led major community development and infrastructure projects across villages.' },
+                  { year: '2019', title: 'Legislative Representative', desc: 'Championed citizen welfare programs, youth empowerment, and rural health.' },
+                  { year: 'Present', title: `Serving People of ${config?.tenant?.name || 'Constituency'}`, desc: 'Spearheading smart clinics, transparent governance, and direct Jan Samasya redressal.' }
+                ]).map((item, i) => (
+                  <div key={i} className="flex items-start gap-3.5 relative z-10">
+                    <div 
+                      className="w-8 h-8 rounded-full text-white flex items-center justify-center text-xs font-black shrink-0 shadow-md"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="bg-[#f8fafc] border border-gray-100 rounded-2xl p-4 flex-1">
+                      <span 
+                        className="text-[0.65rem] font-extrabold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                      >
+                        {item.year}
+                      </span>
+                      <h4 className="text-sm font-extrabold text-gray-900 mt-1">{item.title}</h4>
+                      <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Tab Content: Vision */}
           {activeTab === 'Vision' && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 min-h-[300px]">
-              <h2 className="text-xl font-extrabold text-gray-900 leading-tight mb-4">Viksit Bharat 2047</h2>
-              <p className="text-sm text-gray-600 font-medium leading-relaxed">
-                The vision is clear: to see India as a developed nation by the 100th year of its independence. This involves inclusive growth, modern infrastructure, and global leadership.
-              </p>
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h2 className="text-xl font-extrabold text-gray-900 leading-tight mb-2">Vision & 5 Pillars</h2>
+              <p className="text-xs text-gray-500 font-semibold mb-6">Building an empowered and prosperous constituency</p>
+
+              <div className="grid grid-cols-1 gap-3.5">
+                {[
+                  { title: '1. Quality Education & Skill Training', desc: 'Smart schools and digital learning centers in every Gram Panchayat.' },
+                  { title: '2. 24x7 Clean Drinking Water & Sanitation', desc: 'Piped water connection to every household with proper drainage systems.' },
+                  { title: '3. Accessible Primary Healthcare', desc: 'Upgrading community health centers with free diagnostics and medicines.' },
+                  { title: '4. Modern Road & Highway Network', desc: 'Pothole-free village roads and fast connectivity to main markets.' },
+                  { title: '5. Transparent Digital Governance', desc: '100% resolution of public complaints within 48-72 hours via Jan Samasya portal.' }
+                ].map((pillar, i) => (
+                  <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
+                    <div 
+                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                    >
+                      <FaStar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-gray-900 leading-tight">{pillar.title}</h4>
+                      <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">{pillar.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
+import { storage } from '../services/storage';
+import { useTenant } from '../context/TenantContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { primaryColor, secondaryColor, leaderName, tagline, logoUrl } = useTenant();
   const [mobileNumber, setMobileNumber] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -43,21 +47,30 @@ export default function LoginPage() {
     setMobileNumber(val);
   };
 
-  const handleSendOtp = (e) => {
+  const handleSendOtp = async (e) => {
     e?.preventDefault();
     if (mobileNumber.length !== 10) {
       triggerToast('Please enter a valid 10-digit number');
       return;
     }
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await api.sendOtp(mobileNumber);
       setIsLoading(false);
       setIsOtpSent(true);
       setTimer(30);
       setCanResend(false);
-      triggerToast(`OTP successfully sent to +91 ${mobileNumber}`);
-      setTimeout(() => otpInputRefs[0]?.current?.focus(), 150);
-    }, 800);
+      setOtp(['', '', '', '', '', '']);
+      
+      const devOtpMsg = res?.devOtp ? ` (Dev OTP: ${res.devOtp})` : '';
+      triggerToast((res?.message || `OTP sent to +91 ${mobileNumber}`) + devOtpMsg);
+      setTimeout(() => otpInputRefs[0]?.current?.focus(), 200);
+    } catch (err) {
+      console.error('API send-otp error:', err);
+      setIsLoading(false);
+      triggerToast(err.message || 'Failed to send OTP. Please try again.');
+    }
   };
 
   const handleOtpChange = (index, value) => {
@@ -78,29 +91,76 @@ export default function LoginPage() {
     }
   };
 
-  const handleVerifyOtp = (e) => {
+  const handleVerifyOtp = async (e) => {
     e?.preventDefault();
-    const enteredCode = otp.join('');
+    const enteredCode = otp.join('').trim();
     if (enteredCode.length < 6) {
       triggerToast('Please enter 6-digit OTP');
       return;
     }
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const data = await api.verifyOtp(mobileNumber, enteredCode);
       setIsLoading(false);
-      setIsVerified(true);
-      triggerToast('🎉 Login Successful!');
-      setTimeout(() => navigate('/profile', { replace: true }), 1000);
-    }, 700);
+
+      if (data?.token) {
+        api.setToken(data.token);
+      }
+
+      const userData = data?.user || {};
+      const isNewUser = data?.isNewUser ?? !userData?.isProfileComplete;
+
+      if (!isNewUser && userData?.name) {
+        const fullUser = {
+          ...userData,
+          mobile: mobileNumber,
+          isRegistered: true,
+          isProfileComplete: true
+        };
+        storage.setUser(fullUser);
+        setIsVerified(true);
+        triggerToast(`Welcome back, ${fullUser.name || 'Citizen'}!`);
+        setTimeout(() => {
+          navigate('/home', { replace: true });
+        }, 500);
+      } else {
+        // New user or incomplete profile -> navigate to registration page
+        storage.setUser({ 
+          ...userData, 
+          mobile: mobileNumber, 
+          isRegistered: false,
+          isProfileComplete: false
+        });
+        setIsVerified(true);
+        triggerToast('OTP Verified! Please complete your registration');
+        setTimeout(() => {
+          navigate('/register', { replace: true });
+        }, 500);
+      }
+    } catch (err) {
+      console.error('API verify-otp error:', err);
+      setIsLoading(false);
+      triggerToast(err.message || 'Invalid or expired OTP. Please try again.');
+    }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (!canResend) return;
-    setOtp(['', '', '', '', '', '']);
-    setTimer(30);
-    setCanResend(false);
-    triggerToast(`New OTP sent to: +91 ${mobileNumber}`);
-    otpInputRefs[0]?.current?.focus();
+    setIsLoading(true);
+    try {
+      const res = await api.sendOtp(mobileNumber);
+      setIsLoading(false);
+      setTimer(30);
+      setCanResend(false);
+      setOtp(['', '', '', '', '', '']);
+      const devOtpMsg = res?.devOtp ? ` (Dev OTP: ${res.devOtp})` : '';
+      triggerToast((res?.message || `New OTP sent to +91 ${mobileNumber}`) + devOtpMsg);
+      otpInputRefs[0]?.current?.focus();
+    } catch (err) {
+      setIsLoading(false);
+      triggerToast(err.message || 'Failed to resend OTP.');
+    }
   };
 
   return (
@@ -116,13 +176,28 @@ export default function LoginPage() {
         
         {/* Logo Area */}
         <div className="flex flex-col items-center mb-6 shrink-0">
-          <img src="/image copy 3.png" alt="BJP Logo" className="w-32 h-auto object-contain" />
+          <img 
+            src={logoUrl || "/image copy 3.png"} 
+            alt="Logo" 
+            className="w-24 h-24 object-contain" 
+            onError={(e) => { e.target.src = '/image copy 3.png'; }}
+          />
         </div>
 
         {/* Welcome Text */}
         <div className="mb-8">
           <p className="text-[#334155] text-[0.9rem] font-semibold mb-1">Welcome to</p>
-          <h1 className="text-[1.7rem] font-extrabold text-gray-900 tracking-tight">BJP JanSampark</h1>
+          <h1 className="text-[1.7rem] font-extrabold text-gray-900 tracking-tight">
+            {leaderName || 'जनसेवा'}
+          </h1>
+          {tagline && (
+            <p 
+              className="text-xs font-bold mt-0.5 uppercase tracking-wider"
+              style={{ color: primaryColor }}
+            >
+              {tagline}
+            </p>
+          )}
         </div>
 
         {isVerified ? (
@@ -160,7 +235,13 @@ export default function LoginPage() {
               <div className="flex items-center w-full h-14 px-4 border border-gray-200 rounded-xl bg-white shadow-sm focus-within:border-[#f37920] focus-within:ring-1 focus-within:ring-[#f37920] transition-all">
                 {/* Flag and Code */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🇮🇳</span>
+                  <div className="w-6 h-4 rounded-sm overflow-hidden flex flex-col border border-gray-200 shadow-xs">
+                    <div className="h-1/3 bg-[#FF9933]"></div>
+                    <div className="h-1/3 bg-white flex items-center justify-center">
+                      <div className="w-1 h-1 rounded-full bg-[#000080]"></div>
+                    </div>
+                    <div className="h-1/3 bg-[#128807]"></div>
+                  </div>
                   <span className="text-sm font-bold text-gray-800">+91</span>
                   <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
@@ -187,7 +268,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-14 bg-[#f37920] hover:bg-[#e25d14] text-white font-bold text-lg rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center disabled:opacity-75"
+              className="w-full h-14 text-white font-bold text-lg rounded-xl shadow-md transition-all flex items-center justify-center disabled:opacity-75"
+              style={{ backgroundColor: primaryColor }}
             >
               {isLoading ? 'Sending...' : 'Send OTP'}
             </button>
@@ -207,7 +289,14 @@ export default function LoginPage() {
               <p className="text-sm font-medium text-[#64748b] mb-4">
                 Enter the 6-digit OTP sent to<br/>
                 <span className="font-bold text-gray-800">+91 {mobileNumber}</span>
-                <button type="button" onClick={() => setIsOtpSent(false)} className="ml-2 text-[#f37920] hover:underline text-xs">Edit</button>
+                <button 
+                  type="button" 
+                  onClick={() => setIsOtpSent(false)} 
+                  className="ml-2 hover:underline text-xs font-bold"
+                  style={{ color: primaryColor }}
+                >
+                  Edit
+                </button>
               </p>
               
               {/* 6 Digit OTP Inputs */}
@@ -222,7 +311,8 @@ export default function LoginPage() {
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold text-gray-800 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#f37920] focus:ring-1 focus:ring-[#f37920] transition-all shadow-sm"
+                    className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold text-gray-800 bg-white border border-gray-200 rounded-xl outline-none transition-all shadow-sm"
+                    style={{ borderColor: digit ? primaryColor : undefined }}
                   />
                 ))}
               </div>
@@ -231,7 +321,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-14 bg-[#f37920] hover:bg-[#e25d14] text-white font-bold text-lg rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center disabled:opacity-75 mt-2"
+              className="w-full h-14 text-white font-bold text-lg rounded-xl shadow-md transition-all flex items-center justify-center disabled:opacity-75 mt-2"
+              style={{ backgroundColor: primaryColor }}
             >
               {isLoading ? 'Verifying...' : 'Verify OTP'}
             </button>
