@@ -22,6 +22,7 @@ export default function HomePage() {
   const [galleryPhotos, setGalleryPhotos] = useState([]);
   const [aboutLeader, setAboutLeader] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUnread = async () => {
@@ -80,7 +81,13 @@ export default function HomePage() {
 
         // 5. Fetch Upcoming Events
         const eventsRes = await api.getEvents({ upcoming: 'true', limit: 4 }).catch(() => []);
-        const eventsList = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.data || []);
+        const eventsList = Array.isArray(eventsRes?.items) 
+          ? eventsRes.items 
+          : (Array.isArray(eventsRes?.data?.items) 
+              ? eventsRes.data.items 
+              : (Array.isArray(eventsRes?.data) 
+                  ? eventsRes.data 
+                  : (Array.isArray(eventsRes) ? eventsRes : [])));
         if (eventsList.length > 0) {
           setUpcomingEvents(eventsList);
         }
@@ -114,7 +121,7 @@ export default function HomePage() {
     loadAllHomeData();
   }, []);
 
-  // Display slides from backend banners or clean dynamic default
+  // Display slides from backend banners or clean tenant branding banner
   const displaySlides = banners.length > 0 
     ? banners.map(b => ({
         img: getMediaUrl(b.imageUrl || b.image),
@@ -125,10 +132,10 @@ export default function HomePage() {
       }))
     : [
         {
-          img: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&q=80&w=1200',
-          title: tenantConfig?.branding?.tagline || 'जन सेवा ही हमारा संकल्प',
-          badge: tenantConfig?.branding?.leaderName || 'जनसंपर्क',
-          desc: 'Connecting with citizens across every ward & booth',
+          img: tenantConfig?.branding?.heroBannerUrl || tenantConfig?.branding?.logoUrl || '/image copy 3.png',
+          title: tenantConfig?.branding?.tagline || 'सेवा, संकल्प और विकास ही हमारी पहचान',
+          badge: leaderName || 'जनसेवा',
+          desc: tenantConfig?.tenant?.constituency ? `Constituency: ${tenantConfig.tenant.constituency}` : 'Direct Citizen Engagement & Public Welfare',
           linkUrl: null
         }
       ];

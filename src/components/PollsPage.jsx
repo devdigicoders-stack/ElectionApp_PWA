@@ -105,43 +105,11 @@ export default function PollsPage() {
     return !isEnded && !isExplicitlyInactive;
   });
 
-  const backendPastPolls = pollData.filter(p => {
+  const pastPolls = pollData.filter(p => {
     const isEnded = p.endsAt && new Date(p.endsAt) < now;
     const isExplicitlyInactive = p.isActive === false;
     return isEnded || isExplicitlyInactive;
   });
-
-  const fallbackPastPolls = [
-    {
-      id: 99,
-      question: "Which park restoration project in Sector 4 should be prioritized first?",
-      category: "Urban Development",
-      area: "Constituency Area",
-      date: "Closed recently",
-      totalVotes: 4820,
-      userVoted: 'opt1',
-      options: [
-        { id: 'opt1', text: 'Central Green Park & Walking Track', votes: 2892, percent: 60 },
-        { id: 'opt2', text: 'Children Play Area & Open Gym', votes: 1446, percent: 30 },
-        { id: 'opt3', text: 'Senior Citizen Meditation Pavilion', votes: 482, percent: 10 }
-      ]
-    },
-    {
-      id: 98,
-      question: "Preferred timing for weekly Public Grievance Chaupal at Block office?",
-      category: "Governance",
-      area: "All Wards",
-      date: "Closed recently",
-      totalVotes: 2150,
-      userVoted: null,
-      options: [
-        { id: 'opt1', text: 'Saturday Morning (9 AM - 12 PM)', votes: 1400, percent: 65 },
-        { id: 'opt2', text: 'Sunday Evening (4 PM - 7 PM)', votes: 750, percent: 35 }
-      ]
-    }
-  ];
-
-  const pastPolls = backendPastPolls.length > 0 ? backendPastPolls : fallbackPastPolls;
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
@@ -332,47 +300,54 @@ export default function PollsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4 pb-6">
-            {pastPolls.map((poll) => {
-              const pollTotal = poll.totalVotes || 0;
-              return (
-                <div key={poll.id || poll._id} className="bg-white rounded-3xl p-5 shadow-xs border border-gray-100">
-                  <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
-                      <HiMapPin className="w-3 h-3 text-gray-500" />
-                      <span>{poll.area || 'All Constituency'}</span>
-                    </span>
-                    <span className="text-[11px] font-bold text-gray-400">
-                      {poll.date || (poll.endsAt ? `Closed on ${new Date(poll.endsAt).toLocaleDateString()}` : 'Poll Closed')}
-                    </span>
-                  </div>
-                  <h3 className="text-xs font-extrabold text-gray-900 leading-snug mb-3">{poll.question}</h3>
-                  <div className="flex flex-col gap-2">
-                    {poll.options.map(opt => {
-                      const optId = opt._id || opt.id || opt.optionId;
-                      const optPercent = opt.percent !== undefined 
-                        ? opt.percent 
-                        : (pollTotal > 0 ? Math.round(((opt.votes || 0) / pollTotal) * 100) : 0);
-                      
-                      return (
-                        <div key={optId} className="relative rounded-2xl p-3 bg-gray-50 border border-gray-100 overflow-hidden">
-                          <div 
-                            className="absolute top-0 left-0 bottom-0 opacity-20 rounded-2xl" 
-                            style={{ width: `${optPercent}%`, backgroundColor: primaryColor }}
-                          ></div>
-                          <div className="relative z-10 flex justify-between items-center gap-2">
-                            <span className="text-xs font-bold text-gray-800">{opt.text}</span>
-                            <span className="text-xs font-black text-gray-900">{optPercent}%</span>
+            {pastPolls.length > 0 ? (
+              pastPolls.map((poll) => {
+                const pollTotal = poll.totalVotes || 0;
+                return (
+                  <div key={poll.id || poll._id} className="bg-white rounded-3xl p-5 shadow-xs border border-gray-100">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
+                        <HiMapPin className="w-3 h-3 text-gray-500" />
+                        <span>{poll.area || 'All Constituency'}</span>
+                      </span>
+                      <span className="text-[11px] font-bold text-gray-400">
+                        {poll.date || (poll.endsAt ? `Closed on ${new Date(poll.endsAt).toLocaleDateString()}` : 'Poll Closed')}
+                      </span>
+                    </div>
+                    <h3 className="text-xs font-extrabold text-gray-900 leading-snug mb-3">{poll.question}</h3>
+                    <div className="flex flex-col gap-2">
+                      {poll.options.map(opt => {
+                        const optId = opt._id || opt.id || opt.optionId;
+                        const optPercent = opt.percent !== undefined 
+                          ? opt.percent 
+                          : (pollTotal > 0 ? Math.round(((opt.votes || 0) / pollTotal) * 100) : 0);
+                        
+                        return (
+                          <div key={optId} className="relative rounded-2xl p-3 bg-gray-50 border border-gray-100 overflow-hidden">
+                            <div 
+                              className="absolute top-0 left-0 bottom-0 opacity-20 rounded-2xl" 
+                              style={{ width: `${optPercent}%`, backgroundColor: primaryColor }}
+                            ></div>
+                            <div className="relative z-10 flex justify-between items-center gap-2">
+                              <span className="text-xs font-bold text-gray-800">{opt.text}</span>
+                              <span className="text-xs font-black text-gray-900">{optPercent}%</span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 text-right text-[11px] font-bold text-gray-400">
+                      Total Participants: {pollTotal.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="mt-3 text-right text-[11px] font-bold text-gray-400">
-                    Total Participants: {pollTotal.toLocaleString()}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="bg-white rounded-3xl p-8 text-center border border-gray-100">
+                <p className="text-sm font-bold text-gray-700">No past polls available yet</p>
+                <p className="text-xs text-gray-400 mt-1">Closed polls and final public opinion percentages will appear here.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

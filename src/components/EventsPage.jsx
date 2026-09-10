@@ -41,7 +41,15 @@ export default function EventsPage() {
       try {
         setIsLoading(true);
         const res = await api.getEvents().catch(() => []);
-        const list = Array.isArray(res) ? res : (res?.data || []);
+        // Support response structures: res.items, res.data.items, res.data, or direct array
+        const list = Array.isArray(res?.items) 
+          ? res.items 
+          : (Array.isArray(res?.data?.items) 
+              ? res.data.items 
+              : (Array.isArray(res?.data) 
+                  ? res.data 
+                  : (Array.isArray(res) ? res : [])));
+
         if (list.length > 0) {
           const formatted = list.map(e => {
             const hasPassed = e.status === 'past' || (e.endDate ? new Date(e.endDate) < new Date() : (e.startDate ? new Date(e.startDate) < new Date() : false));
@@ -101,10 +109,18 @@ export default function EventsPage() {
 
   const getFilteredListForTab = (tabName) => {
     return events.filter((e) => {
+      // Tab filter
       if (tabName === 'Upcoming' && e.category !== 'Upcoming') return false;
       if (tabName === 'Past' && e.category !== 'Past') return false;
       if (tabName === 'My Events' && !rsvpStatus[e.id]) return false;
-      if (activeFilter !== 'All' && e.eventType !== activeFilter) return false;
+
+      // Sub-type filter
+      if (activeFilter !== 'All') {
+        const typeMatch = String(e.eventType || '').toLowerCase() === activeFilter.toLowerCase();
+        const catMatch = String(e.category || '').toLowerCase() === activeFilter.toLowerCase();
+        const tagMatch = Array.isArray(e.tags) && e.tags.some(t => String(t).toLowerCase() === activeFilter.toLowerCase());
+        if (!typeMatch && !catMatch && !tagMatch) return false;
+      }
       return true;
     });
   };

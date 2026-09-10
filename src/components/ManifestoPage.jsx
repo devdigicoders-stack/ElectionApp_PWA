@@ -87,58 +87,14 @@ export default function ManifestoPage() {
     fetchManifesto();
   }, [activeCategory]);
 
-  const defaultManifesto = [
-    {
-      id: 1,
-      title: 'Youth Employment & Startup Incubation Hub',
-      category: 'Youth & Jobs',
-      progress: 88,
-      status: 'In Progress',
-      targetYear: '2027',
-      summary: 'Employment opportunities through industrial corridors and IT skill hubs.',
-      points: [
-        'Establishment of Mega IT & Tech Park with job incubation.',
-        'Zero-collateral startup assistance up to ₹15 Lakhs.',
-        'Skill development centers across assembly wards.'
-      ],
-    },
-    {
-      id: 2,
-      title: 'Kisan Samridhi & Free Solar Irrigation Support',
-      category: 'Farmers',
-      progress: 92,
-      status: 'Achieved',
-      targetYear: '2026',
-      summary: 'Modern agricultural cold chains, solar pumps, and direct assistance.',
-      points: [
-        'Zero-interest crop loans assistance for small farmers.',
-        'Solar feeder installation for canal irrigation power.',
-        'Setting up regional storage hubs near mandis.'
-      ],
-    },
-    {
-      id: 3,
-      title: 'Universal Healthcare & Multispecialty Facilities',
-      category: 'Healthcare',
-      progress: 85,
-      status: 'In Progress',
-      targetYear: '2026',
-      summary: 'Expansion of health cover and mobile wellness clinics.',
-      points: [
-        'Modern multispecialty hospital upgrades in constituency.',
-        'Free Jan Aushadhi generic medicine dispensaries.'
-      ],
-    }
-  ];
-
-  const displayList = items.length > 0 ? items : (api.getTenantSlug() ? items : defaultManifesto);
+  const displayList = items;
   const filteredItems = activeCategory === 'All' 
     ? displayList 
     : displayList.filter(item => item.category === activeCategory);
 
   const overallProgress = displayList.length > 0 
     ? Math.round(displayList.reduce((acc, curr) => acc + (curr.progress || 80), 0) / displayList.length)
-    : 85;
+    : 100;
 
   const handleDownload = () => {
     toast.success('Sankalp Patra PDF download initiated!');

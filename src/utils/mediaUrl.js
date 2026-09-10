@@ -9,15 +9,20 @@ const getBaseUrl = () => {
   if (envUrl && !envUrl.includes('localhost')) {
     return envUrl;
   }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return `http://${window.location.hostname}:3001`;
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('vercel.app') || (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname))) {
+      return 'https://electionapp-backend-jai8.onrender.com';
+    }
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname)) {
+      return `http://${window.location.hostname}:3001`;
+    }
   }
-  return envUrl || 'http://localhost:3001';
+  return envUrl || 'https://electionapp-backend-jai8.onrender.com';
 };
 
 const BACKEND_BASE = getBaseUrl().replace(/\/+$/, '');
 
-export function getMediaUrl(url, fallback = 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=800') {
+export function getMediaUrl(url, fallback = '/image copy 3.png') {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return fallback;
   }
