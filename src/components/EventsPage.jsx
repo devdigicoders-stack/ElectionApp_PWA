@@ -72,13 +72,12 @@ export default function EventsPage() {
           });
           setEvents(formatted);
         } else {
-          // If no events created in backend yet, provide placeholder preview
-          setEvents(eventsStorage.getEvents());
+          setEvents([]);
         }
         setRsvpStatus(eventsStorage.getRsvp());
       } catch (err) {
         console.warn('Error fetching events:', err);
-        setEvents(eventsStorage.getEvents());
+        setEvents([]);
       } finally {
         setIsLoading(false);
       }

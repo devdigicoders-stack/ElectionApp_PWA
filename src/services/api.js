@@ -1,17 +1,24 @@
-// Dynamically detect host so phone on same Wi-Fi can connect to backend at port 3001
+// Dynamically detect host
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (envUrl && !envUrl.includes('localhost')) {
     return envUrl;
   }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return `http://${window.location.hostname}:3001`;
+  if (typeof window !== 'undefined') {
+    // If hosted on live domains (e.g. vercel.app), prefer deployed live Render backend
+    if (window.location.hostname.includes('vercel.app') || (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname))) {
+      return 'https://electionapp-backend-jai8.onrender.com';
+    }
+    // If local IP on mobile Wi-Fi
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname)) {
+      return `http://${window.location.hostname}:3001`;
+    }
   }
-  return envUrl || 'http://localhost:3001';
+  return envUrl || 'https://electionapp-backend-jai8.onrender.com';
 };
 
 const BASE_URL = getBaseUrl();
-const DEFAULT_TENANT_SLUG = import.meta.env.VITE_DEFAULT_TENANT_SLUG || 'madiyayu-leader';
+const DEFAULT_TENANT_SLUG = import.meta.env.VITE_DEFAULT_TENANT_SLUG || 'demo';
 
 class ApiClient {
   constructor() {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { useTenant } from '../context/TenantContext';
+import { HiArrowLeft } from 'react-icons/hi2';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -16,6 +17,21 @@ export default function LoginPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  // Handle hardware & browser back button when on OTP screen
+  useEffect(() => {
+    if (isOtpSent) {
+      window.history.pushState({ step: 'otp' }, '');
+      const handlePopState = () => {
+        setIsOtpSent(false);
+        setOtp(['', '', '', '', '', '']);
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
+    }
+  }, [isOtpSent]);
 
   const otpInputRefs = [
     useRef(null), useRef(null), useRef(null), 
@@ -286,6 +302,21 @@ export default function LoginPage() {
           /* OTP Verification Form */
           <form onSubmit={handleVerifyOtp} className="w-full flex flex-col flex-1">
             <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOtpSent(false);
+                    setOtp(['', '', '', '', '', '']);
+                  }}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200 active:scale-95 transition-all"
+                  title="Change Mobile Number"
+                >
+                  <HiArrowLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-bold text-gray-500">Change Mobile Number</span>
+              </div>
+
               <p className="text-sm font-medium text-[#64748b] mb-4">
                 Enter the 6-digit OTP sent to<br/>
                 <span className="font-bold text-gray-800">+91 {mobileNumber}</span>
