@@ -29,10 +29,8 @@ export function getMediaUrl(url, fallback = '/image copy 3.png') {
 
   let clean = url.trim();
 
-  // If the path contains youtube / youtu.be, dummy domains (like example.com), or invalid URLs, return fallback
+  // If the path contains dummy test domains or invalid URLs, return fallback
   if (
-    clean.includes('youtube.com') ||
-    clean.includes('youtu.be') ||
     clean.includes('example.com') ||
     clean.includes('sample.com')
   ) {

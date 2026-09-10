@@ -123,6 +123,7 @@ export default function PhotoGalleryPage() {
                     src={photo.url} 
                     alt={photo.title} 
                     className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                    onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
                   />
                   <div className="absolute top-2 left-2">
                     <span 
@@ -178,6 +179,7 @@ export default function PhotoGalleryPage() {
               src={selectedPhoto.url} 
               alt={selectedPhoto.title} 
               className="max-h-[70vh] max-w-full rounded-2xl object-contain shadow-2xl" 
+              onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
             />
           </div>
 

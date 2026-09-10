@@ -181,11 +181,40 @@ export default function HomePage() {
     }
   };
 
+  // Touch / Swipe support for manual sliding
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const minSwipeDistance = 40;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches ? e.targetTouches[0].clientX : e.clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches ? e.targetTouches[0].clientX : e.clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Next slide
+      setCurrentSlide((prev) => (prev + 1) % displaySlides.length);
+    } else if (isRightSwipe) {
+      // Previous slide
+      setCurrentSlide((prev) => (prev - 1 + displaySlides.length) % displaySlides.length);
+    }
+  };
+
   useEffect(() => {
     if (displaySlides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % displaySlides.length);
-    }, 3500);
+    }, 4000);
     return () => clearInterval(timer);
   }, [displaySlides.length]);
 
@@ -275,7 +304,15 @@ export default function HomePage() {
       <div className="flex-1 overflow-y-auto w-full relative">
         {/* Slider Banner (Strictly from GET /banners API) */}
         {displaySlides.length > 0 && (
-          <div className="relative w-full aspect-[16/8] sm:aspect-[16/7] bg-slate-900 shrink-0 overflow-hidden shadow-inner">
+          <div 
+            className="relative w-full aspect-[16/8] sm:aspect-[16/7] bg-slate-900 shrink-0 overflow-hidden shadow-inner select-none cursor-grab active:cursor-grabbing"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onMouseDown={onTouchStart}
+            onMouseMove={onTouchMove}
+            onMouseUp={onTouchEnd}
+          >
             <div
               className="flex w-full h-full transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -286,16 +323,28 @@ export default function HomePage() {
                   onClick={() => handleBannerClick(slide)}
                   className={`min-w-full h-full relative overflow-hidden flex flex-col justify-end p-4 ${slide.linkUrl ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
                 >
-                  {/* Full Banner Background Image */}
-                  <img 
-                    src={slide.img} 
-                    alt={slide.title} 
-                    className="absolute inset-0 w-full h-full object-cover object-center" 
-                    onError={(e) => { e.target.src = '/image copy 3.png'; }}
-                  />
+                  {/* Banner Image or Party Logo Fallback */}
+                  {slide.isLogoFallback ? (
+                    <img 
+                      src={slide.img} 
+                      alt={slide.title} 
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none" 
+                      onError={(e) => { e.target.src = '/image copy 3.png'; }}
+                    />
+                  ) : (
+                    <img 
+                      src={slide.img} 
+                      alt={slide.title} 
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none" 
+                      onError={(e) => {
+                        // If banner image fails, hide broken img or fallback
+                        e.target.style.opacity = '0.3';
+                      }}
+                    />
+                  )}
                   
                   {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 pointer-events-none"></div>
                   
                   {/* Content Overlay */}
                   <div className="relative z-20 text-white mb-2 max-w-[88%] flex flex-col items-start">
@@ -335,6 +384,38 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+
+            {/* Left & Right Manual Slide Arrows */}
+            {displaySlides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentSlide((prev) => (prev - 1 + displaySlides.length) % displaySlides.length);
+                  }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center z-30 active:scale-90 transition-all backdrop-blur-xs"
+                  title="Previous Banner"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentSlide((prev) => (prev + 1) % displaySlides.length);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center z-30 active:scale-90 transition-all backdrop-blur-xs"
+                  title="Next Banner"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
             
             {/* Slide Indicators */}
             {displaySlides.length > 1 && (
