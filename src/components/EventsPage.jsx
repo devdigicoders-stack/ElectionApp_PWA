@@ -44,7 +44,9 @@ export default function EventsPage() {
         const list = Array.isArray(res) ? res : (res?.data || []);
         if (list.length > 0) {
           const formatted = list.map(e => {
-            const hasPassed = e.endDate ? new Date(e.endDate) < new Date() : (e.startDate ? new Date(e.startDate) < new Date() : false);
+            const hasPassed = e.status === 'past' || (e.endDate ? new Date(e.endDate) < new Date() : (e.startDate ? new Date(e.startDate) < new Date() : false));
+            const firstImg = (Array.isArray(e.images) && e.images.length > 0 ? e.images[0] : null) || e.bannerUrl || e.img;
+            
             return {
               id: e._id || e.id,
               _id: e._id,
@@ -52,16 +54,25 @@ export default function EventsPage() {
               eventType: e.eventType || e.category || 'Jan Sabha',
               category: hasPassed ? 'Past' : 'Upcoming',
               date: e.startDate ? new Date(e.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Upcoming',
-              time: e.startDate ? new Date(e.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
+              time: e.startTime || (e.startDate ? new Date(e.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM'),
+              endTime: e.endTime || '',
               location: e.location || 'Local Constituency',
-              image: getMediaUrl((Array.isArray(e.images) && e.images[0]) || e.bannerUrl || e.img, 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&q=80&w=800'),
+              mapLink: e.mapLink || null,
+              organizerName: e.organizerName || '',
+              organizerPhone: e.organizerPhone || '',
+              image: getMediaUrl(firstImg, 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&q=80&w=1200'),
+              images: (e.images || []).map(img => getMediaUrl(img)),
               description: e.description || '',
-              requiresRegistration: e.isRegistrationRequired !== false,
+              requiresRegistration: e.registrationRequired === true || e.isRegistrationRequired === true,
+              interestedCount: e.interestedCount || 0,
+              goingCount: e.goingCount || 0,
+              registeredCount: e.registeredCount || 0,
+              tags: e.tags || []
             };
           });
           setEvents(formatted);
         } else {
-          // If no events created in backend yet, provide high-quality placeholder preview
+          // If no events created in backend yet, provide placeholder preview
           setEvents(eventsStorage.getEvents());
         }
         setRsvpStatus(eventsStorage.getRsvp());

@@ -33,20 +33,29 @@ export default function EventDetailsPage() {
       try {
         const liveEvent = await api.getEventById(id).catch(() => null);
         if (liveEvent) {
+          const firstImg = (Array.isArray(liveEvent.images) && liveEvent.images.length > 0 ? liveEvent.images[0] : null) || liveEvent.bannerUrl || liveEvent.img;
+          const hasPassed = liveEvent.status === 'past' || (liveEvent.endDate ? new Date(liveEvent.endDate) < new Date() : (liveEvent.startDate ? new Date(liveEvent.startDate) < new Date() : false));
+
           setEvent({
             id: liveEvent._id || liveEvent.id,
             title: liveEvent.title,
             eventType: liveEvent.eventType || liveEvent.category || 'Jan Sabha',
-            category: new Date(liveEvent.startDate) < new Date() ? 'Past' : 'Upcoming',
+            category: hasPassed ? 'Past' : 'Upcoming',
             date: liveEvent.startDate ? new Date(liveEvent.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Upcoming',
-            time: liveEvent.startDate ? new Date(liveEvent.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
+            time: liveEvent.startTime || (liveEvent.startDate ? new Date(liveEvent.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM'),
+            endTime: liveEvent.endTime || '',
             location: liveEvent.location || 'Local Constituency',
-            image: getMediaUrl((Array.isArray(liveEvent.images) && liveEvent.images[0]) || liveEvent.bannerUrl || liveEvent.img, 'https://images.unsplash.com/photo-1525013066836-c6090f0ad9d8?auto=format&fit=crop&q=80&w=600'),
+            mapLink: liveEvent.mapLink || null,
+            organizerName: liveEvent.organizerName || '',
+            organizerPhone: liveEvent.organizerPhone || '',
+            image: getMediaUrl(firstImg, 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&q=80&w=1200'),
             description: liveEvent.description || '',
-            requiresRegistration: liveEvent.isRegistrationRequired !== false,
+            requiresRegistration: liveEvent.registrationRequired === true || liveEvent.isRegistrationRequired === true,
             interestedCount: liveEvent.interestedCount || 0,
             goingCount: liveEvent.goingCount || 0,
+            registeredCount: liveEvent.registeredCount || 0,
             photos: (liveEvent.images || []).map(img => getMediaUrl(img)),
+            tags: liveEvent.tags || []
           });
         } else {
           setEvent(null);
