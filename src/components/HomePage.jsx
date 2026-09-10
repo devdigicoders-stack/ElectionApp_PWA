@@ -60,10 +60,20 @@ export default function HomePage() {
           setTenantConfig(configRes);
         }
 
-        // 2. Fetch Active Banners
-        const bannersRes = await api.getBanners().catch(() => []);
-        if (Array.isArray(bannersRes) && bannersRes.length > 0) {
-          setBanners(bannersRes);
+        // 2. Fetch Active Banners via GET /banners API
+        const bannersRes = await api.getBanners().catch((err) => {
+          console.warn('Error fetching banners:', err);
+          return [];
+        });
+        const bannersList = Array.isArray(bannersRes)
+          ? bannersRes
+          : (Array.isArray(bannersRes?.data)
+              ? bannersRes.data
+              : (Array.isArray(bannersRes?.items)
+                  ? bannersRes.items
+                  : (Array.isArray(bannersRes?.data?.items) ? bannersRes.data.items : [])));
+        if (Array.isArray(bannersList) && bannersList.length > 0) {
+          setBanners(bannersList);
         }
 
         // 3. Fetch Active Polls
@@ -121,22 +131,28 @@ export default function HomePage() {
     loadAllHomeData();
   }, []);
 
-  // Display slides from backend banners or clean tenant branding banner
+  const appName = leaderName || tenantConfig?.branding?.leaderName || tenantConfig?.tenant?.name || 'जनसंपर्क';
+  const appTagline = tagline || tenantConfig?.branding?.tagline || '';
+  const currentLogo = logoUrl || tenantConfig?.branding?.logoUrl || '/image copy 3.png';
+
+  // Display slides from backend GET /banners API; if no promotional banners exist, show Party Logo card
   const displaySlides = banners.length > 0 
-    ? banners.map(b => ({
-        img: getMediaUrl(b.imageUrl || b.image),
+    ? banners.map((b) => ({
+        img: getMediaUrl(b.imageUrl || b.image || b.bannerUrl || b.url),
         title: b.title || 'जनसंपर्क अभियान',
-        badge: b.category || 'Jan Sabha',
-        desc: b.description || b.subtitle || '',
-        linkUrl: b.linkUrl || null
+        badge: b.badge || b.category || leaderName || 'Jan Sabha',
+        desc: b.description || b.desc || b.subtitle || '',
+        linkUrl: b.linkUrl || b.link || null,
+        isLogoFallback: false,
       }))
     : [
         {
-          img: tenantConfig?.branding?.heroBannerUrl || tenantConfig?.branding?.logoUrl || '/image copy 3.png',
-          title: tenantConfig?.branding?.tagline || 'सेवा, संकल्प और विकास ही हमारी पहचान',
-          badge: leaderName || 'जनसेवा',
+          img: currentLogo,
+          title: tagline || tenantConfig?.branding?.tagline || 'सेवा, संकल्प और विकास',
+          badge: leaderName || 'Official Portal',
           desc: tenantConfig?.tenant?.constituency ? `Constituency: ${tenantConfig.tenant.constituency}` : 'Direct Citizen Engagement & Public Welfare',
-          linkUrl: null
+          linkUrl: null,
+          isLogoFallback: true,
         }
       ];
 
@@ -184,10 +200,6 @@ export default function HomePage() {
     { name: 'Volunteer', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', bgColor: 'bg-[#f3e5f5]', color: 'text-[#8e24aa]', path: '/volunteer' },
     { name: 'News', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z', bgColor: 'bg-[#e0f7fa]', color: 'text-[#00838f]', path: '/latest-updates' },
   ];
-
-  const appName = leaderName || tenantConfig?.branding?.leaderName || tenantConfig?.tenant?.name || 'जनसंपर्क';
-  const appTagline = tagline || tenantConfig?.branding?.tagline || '';
-  const currentLogo = logoUrl || tenantConfig?.branding?.logoUrl || '/image copy 3.png';
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
@@ -261,81 +273,84 @@ export default function HomePage() {
       </div>
 
       <div className="flex-1 overflow-y-auto w-full relative">
-        {/* Slider Banner */}
-        <div className="relative w-full aspect-[16/8] sm:aspect-[16/7] bg-slate-900 shrink-0 overflow-hidden shadow-inner">
-          <div
-            className="flex w-full h-full transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-          >
-            {displaySlides.map((slide, idx) => (
-              <div 
-                key={idx} 
-                onClick={() => handleBannerClick(slide)}
-                className={`min-w-full h-full relative overflow-hidden flex flex-col justify-end p-4 ${slide.linkUrl ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
-              >
-                {/* Background Image */}
-                <img 
-                  src={slide.img} 
-                  alt={slide.title} 
-                  className="absolute inset-0 w-full h-full object-cover object-center" 
-                />
-                
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10"></div>
-                
-                {/* Content Overlay */}
-                <div className="relative z-20 text-white mb-2 max-w-[88%] flex flex-col items-start">
-                  <span 
-                    className="inline-block text-white text-[0.6rem] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 shadow-sm"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    {slide.badge}
-                  </span>
-                  <h3 className="text-sm sm:text-base font-black leading-tight drop-shadow-md truncate w-full">
-                    {slide.title}
-                  </h3>
-                  {slide.desc && (
-                    <p className="text-[0.68rem] text-gray-200 font-medium line-clamp-1 opacity-90 mb-1.5">
-                      {slide.desc}
-                    </p>
-                  )}
-                  {slide.linkUrl && (() => {
-                    const btn = getRouteButtonLabel(slide.linkUrl);
-                    return (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleBannerClick(slide);
-                        }}
-                        className="mt-1.5 px-3 py-1 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-1.5 active:scale-95 transition-all hover:opacity-95"
-                        style={{ backgroundColor: primaryColor }}
-                      >
-                        <span>{btn.text}</span>
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d={btn.icon} />
-                        </svg>
-                      </button>
-                    );
-                  })()}
+        {/* Slider Banner (Strictly from GET /banners API) */}
+        {displaySlides.length > 0 && (
+          <div className="relative w-full aspect-[16/8] sm:aspect-[16/7] bg-slate-900 shrink-0 overflow-hidden shadow-inner">
+            <div
+              className="flex w-full h-full transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
+              {displaySlides.map((slide, idx) => (
+                <div 
+                  key={idx} 
+                  onClick={() => handleBannerClick(slide)}
+                  className={`min-w-full h-full relative overflow-hidden flex flex-col justify-end p-4 ${slide.linkUrl ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
+                >
+                  {/* Full Banner Background Image */}
+                  <img 
+                    src={slide.img} 
+                    alt={slide.title} 
+                    className="absolute inset-0 w-full h-full object-cover object-center" 
+                    onError={(e) => { e.target.src = '/image copy 3.png'; }}
+                  />
+                  
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10"></div>
+                  
+                  {/* Content Overlay */}
+                  <div className="relative z-20 text-white mb-2 max-w-[88%] flex flex-col items-start">
+                    <span 
+                      className="inline-block text-white text-[0.6rem] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 shadow-sm"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {slide.badge}
+                    </span>
+                    <h3 className="text-sm sm:text-base font-black leading-tight drop-shadow-md truncate w-full">
+                      {slide.title}
+                    </h3>
+                    {slide.desc && (
+                      <p className="text-[0.68rem] text-gray-200 font-medium line-clamp-1 opacity-90 mb-1.5">
+                        {slide.desc}
+                      </p>
+                    )}
+                    {slide.linkUrl && (() => {
+                      const btn = getRouteButtonLabel(slide.linkUrl);
+                      return (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBannerClick(slide);
+                          }}
+                          className="mt-1.5 px-3 py-1 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-1.5 active:scale-95 transition-all hover:opacity-95"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          <span>{btn.text}</span>
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={btn.icon} />
+                          </svg>
+                        </button>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Slide Indicators */}
-          {displaySlides.length > 1 && (
-            <div className="absolute bottom-2.5 right-4 flex justify-end gap-1.5 z-30">
-              {displaySlides.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentSlide(idx)}
-                  className={`h-1.5 rounded-full transition-all ${currentSlide === idx ? 'w-5 shadow' : 'bg-white/60 w-1.5'}`}
-                  style={{ backgroundColor: currentSlide === idx ? primaryColor : undefined }}
-                ></button>
               ))}
             </div>
-          )}
-        </div>
+            
+            {/* Slide Indicators */}
+            {displaySlides.length > 1 && (
+              <div className="absolute bottom-2.5 right-4 flex justify-end gap-1.5 z-30">
+                {displaySlides.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`h-1.5 rounded-full transition-all ${currentSlide === idx ? 'w-5 shadow' : 'bg-white/60 w-1.5'}`}
+                    style={{ backgroundColor: currentSlide === idx ? primaryColor : undefined }}
+                  ></button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Content Body */}
         <div className="relative z-20 w-full bg-white flex flex-col pb-8">
@@ -380,7 +395,12 @@ export default function HomePage() {
                 {latestUpdates.map(item => (
                   <div key={item._id || item.id} onClick={() => navigate('/latest-updates')} className="flex gap-3 items-center bg-[#f8fafc] rounded-2xl p-3 cursor-pointer active:scale-[0.98] transition-transform border border-gray-100">
                     <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100">
-                      <img src={item.coverImage || item.imageUrl || item.img || 'https://images.unsplash.com/photo-1532375810565-c0ba94c93ebc?auto=format&fit=crop&q=80&w=400'} alt={item.title} className="w-full h-full object-cover" />
+                      <img 
+                        src={getMediaUrl(item.coverImage || item.imageUrl || item.img, '/event_jan_sabha.jpg')} 
+                        alt={item.title} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
+                      />
                     </div>
                     <div className="flex flex-col flex-1 min-w-0">
                       <span 
@@ -423,7 +443,12 @@ export default function HomePage() {
                 {upcomingEvents.map(event => (
                   <div key={event._id || event.id} onClick={() => navigate(`/events/${event._id || event.id}`)} className="shrink-0 w-44 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform hover:border-orange-200">
                     <div className="w-full h-28 relative overflow-hidden bg-gray-100">
-                      <img src={event.bannerUrl || event.img || 'https://images.unsplash.com/photo-1525013066836-c6090f0ad9d8?auto=format&fit=crop&q=80&w=400'} alt={event.title} className="w-full h-full object-cover" />
+                      <img 
+                        src={getMediaUrl(event.bannerUrl || event.img, '/event_jan_sabha.jpg')} 
+                        alt={event.title} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                       <div className="absolute bottom-2 left-3 right-2">
                         <p className="text-white text-xs font-extrabold leading-tight line-clamp-1">{event.title}</p>
@@ -473,7 +498,12 @@ export default function HomePage() {
                 {devProjects.map(proj => (
                   <div key={proj._id || proj.id} onClick={() => navigate(`/works/${proj._id || proj.id}`)} className="shrink-0 w-40 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform">
                     <div className="w-full h-24 relative overflow-hidden bg-gray-100">
-                      <img src={proj.coverImageUrl || proj.img || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400'} alt={proj.title} className="w-full h-full object-cover" />
+                      <img 
+                        src={getMediaUrl(proj.coverImageUrl || proj.img, '/highway_project.jpg')} 
+                        alt={proj.title} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.src = '/highway_project.jpg'; }}
+                      />
                       <div className="absolute inset-0 bg-black/25"></div>
                     </div>
                     <div className="bg-white px-3 py-2.5 flex flex-col gap-1">
@@ -554,8 +584,8 @@ export default function HomePage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {(galleryPhotos.length > 0 ? galleryPhotos : [
-                { url: 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=400' },
-                { url: 'https://images.unsplash.com/photo-1525013066836-c6090f0ad9d8?auto=format&fit=crop&q=80&w=400' }
+                { url: '/event_jan_sabha.jpg', title: 'जनसंपर्क सभा' },
+                { url: '/event_youth_meet.jpg', title: 'युवा सम्मेलन' }
               ]).map((item, i) => (
                 <div
                   key={i}
@@ -563,9 +593,10 @@ export default function HomePage() {
                   className={`rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-xs relative flex items-center justify-center ${i === 0 ? 'col-span-2 h-44' : 'h-32'}`}
                 >
                   <img 
-                    src={getMediaUrl(item.imageUrl || item.url || item)} 
+                    src={getMediaUrl(item.imageUrl || item.url || item, '/event_youth_meet.jpg')} 
                     alt={item.title || "Gallery"} 
                     className="w-full h-full object-contain p-2" 
+                    onError={(e) => { e.target.src = '/event_youth_meet.jpg'; }}
                   />
                   {item.title && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent p-2.5 pt-6 text-white">

@@ -35,7 +35,7 @@ export default function VideoGalleryPage() {
             date: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
             duration: item.duration || '05:30',
             views: item.views ? `${item.views} views` : 'Official',
-            thumbnail: getMediaUrl(item.thumbnailUrl || item.imageUrl || item.url, 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=800'),
+            thumbnail: getMediaUrl(item.thumbnailUrl || item.imageUrl || item.url, '/event_jan_sabha.jpg'),
             videoUrl: getMediaUrl(item.url || item.videoUrl, 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')
           }));
           setVideos(formatted);

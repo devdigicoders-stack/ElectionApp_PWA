@@ -231,12 +231,12 @@ export default function MyComplaintsPage() {
                       >
                         <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-gray-100 bg-gray-100 flex items-center justify-center">
                           <img 
-                            src={Array.isArray(complaint.images) && complaint.images.length > 0 && complaint.images[0] ? complaint.images[0] : 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=300'} 
+                            src={Array.isArray(complaint.images) && complaint.images.length > 0 && complaint.images[0] ? complaint.images[0] : '/health_center.jpg'} 
                             alt={complaint.title} 
                             className="w-full h-full object-cover" 
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=300';
+                              e.target.src = '/health_center.jpg';
                             }}
                           />
                         </div>
@@ -340,12 +340,12 @@ export default function MyComplaintsPage() {
                     style={{ borderColor: `${primaryColor}40` }}
                   >
                     <img 
-                      src={Array.isArray(selectedComplaint.images) && selectedComplaint.images.length > 0 && selectedComplaint.images[0] ? selectedComplaint.images[0] : 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=300'} 
+                      src={Array.isArray(selectedComplaint.images) && selectedComplaint.images.length > 0 && selectedComplaint.images[0] ? selectedComplaint.images[0] : '/health_center.jpg'} 
                       alt="Complaint" 
                       className="w-full h-full object-cover" 
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=300';
+                        e.target.src = '/health_center.jpg';
                       }}
                     />
                   </div>
@@ -369,7 +369,7 @@ export default function MyComplaintsPage() {
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = 'https://images.unsplash.com/photo-1541888087405-d61db6c1e13a?auto=format&fit=crop&q=80&w=300';
+                              e.target.src = '/health_center.jpg';
                             }}
                           />
                         </a>
