@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -105,6 +106,11 @@ export default function VideoGalleryPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
+        {isLoading ? (
+          <div className="py-12 flex items-center justify-center">
+            <LoadingSpinner message="वीडियो गैलरी लोड हो रही है..." />
+          </div>
+        ) : (
         <div className="flex flex-col gap-5 pb-6">
           {filteredVideos.map((video) => (
             <div 
@@ -159,6 +165,7 @@ export default function VideoGalleryPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Video Player Modal */}

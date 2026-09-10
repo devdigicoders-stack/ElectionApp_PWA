@@ -85,16 +85,6 @@ export default function MyProfilePage() {
             : 'Digital ID & Verification QR'
         },
         {
-          id: 'volunteer',
-          path: '/volunteer',
-          icon: <HiHandRaised className="w-5 h-5 text-indigo-600" />,
-          bg: 'bg-indigo-50',
-          title: 'Karyakarta / Volunteer Profile',
-          subtitle: user?.volunteer?.role 
-            ? `${user.volunteer.role} (${user.volunteer.status || 'Active'})` 
-            : 'Tasks, Badges & Leaderboard'
-        },
-        {
           id: 'area',
           path: '/my-area',
           icon: <HiMapPin className="w-5 h-5 text-emerald-600" />,
@@ -245,7 +235,7 @@ export default function MyProfilePage() {
                   }}
                 >
                   <HiSparkles className="w-3 h-3" />
-                  <span>{user.category === 'volunteer' ? 'Karyakarta' : 'Verified Citizen'}</span>
+                  <span>Verified Citizen</span>
                 </span>
                 {user.assembly && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-gray-100 text-gray-600 truncate max-w-[180px]">

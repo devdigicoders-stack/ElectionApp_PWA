@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { eventsStorage } from '../services/eventsData';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -302,12 +303,7 @@ export default function EventsPage() {
               <div key={tab} className="w-1/3 h-full overflow-y-auto p-4">
                 <div className="flex flex-col gap-4 pb-6">
                   {isLoading ? (
-                    <div className="flex justify-center py-12">
-                      <div 
-                        className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
-                        style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
-                      ></div>
-                    </div>
+                    <LoadingSpinner message="कार्यक्रम एवं जनसभाएं लोड हो रही हैं..." />
                   ) : list.length > 0 ? (
                     list.map((event) => (
                       <div 

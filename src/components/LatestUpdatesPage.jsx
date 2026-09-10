@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiNewspaper, HiShare, HiCalendarDays } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { getMediaUrl } from '../utils/mediaUrl';
@@ -138,10 +139,7 @@ export default function LatestUpdatesPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-48">
-            <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-xs font-bold text-gray-400 mt-2">Loading news & articles...</p>
-          </div>
+          <LoadingSpinner message="समाचार एवं अपडेट्स लोड हो रहे हैं..." />
         ) : paginated.length > 0 ? (
           <div className="flex flex-col gap-4 pb-4">
             {paginated.map(item => (

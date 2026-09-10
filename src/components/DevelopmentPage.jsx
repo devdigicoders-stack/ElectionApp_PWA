@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 
@@ -116,12 +117,7 @@ export default function DevelopmentPage() {
 
           {/* Works List */}
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div 
-                className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
-                style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
-              ></div>
-            </div>
+            <LoadingSpinner message="विकास कार्य लोड हो रहे हैं..." />
           ) : filteredWorks.length > 0 ? (
             <div className="flex flex-col gap-4">
               {filteredWorks.map((work) => {

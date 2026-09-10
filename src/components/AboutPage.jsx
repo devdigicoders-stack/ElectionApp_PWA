@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { FaStar } from 'react-icons/fa6';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -65,7 +66,12 @@ export default function AboutPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner message="विवरण लोड हो रहा है..." />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
         
         {/* Banner Section */}
         <div className="relative w-full aspect-[4/3] bg-gray-200 shrink-0 overflow-hidden sm:rounded-b-3xl">
@@ -242,6 +248,7 @@ export default function AboutPage() {
 
         </div>
       </div>
+      )}
 
       <BottomNav />
     </div>

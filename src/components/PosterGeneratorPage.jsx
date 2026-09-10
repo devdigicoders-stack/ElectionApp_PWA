@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { useTenant } from '../context/TenantContext';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
@@ -184,7 +185,12 @@ export default function PosterGeneratorPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto w-full p-4 space-y-4">
-        
+        {isLoading ? (
+          <div className="py-12 flex items-center justify-center">
+            <LoadingSpinner message="पोस्टर टेम्पलेट्स लोड हो रहे हैं..." />
+          </div>
+        ) : (
+        <>
         {/* Poster Canvas Preview Card */}
         <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex flex-col items-center">
           <div className="relative w-full aspect-[4/5] max-w-xs rounded-2xl overflow-hidden shadow-inner bg-slate-900 border border-gray-200 flex items-center justify-center">
@@ -320,6 +326,8 @@ export default function PosterGeneratorPage() {
             ))}
           </div>
         </div>
+        </>
+        )}
 
       </div>
 

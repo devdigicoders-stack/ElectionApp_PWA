@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { 
   HiArrowLeft, 
   HiCheckCircle, 
@@ -231,10 +232,7 @@ export default function ManifestoPage() {
         {/* Manifesto Cards List */}
         <div className="flex flex-col gap-3.5 pb-6">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-48">
-              <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs font-bold text-gray-400 mt-2">Loading manifesto promises...</p>
-            </div>
+            <LoadingSpinner message="घोषणा पत्र लोड हो रहा है..." />
           ) : filteredItems.length > 0 ? (
             filteredItems.map((item) => (
               <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">

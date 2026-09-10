@@ -50,14 +50,6 @@ export default function MenuPage() {
           path: '/membership',
           bgColor: 'bg-blue-50',
           icon: <HiIdentification className="w-5 h-5 text-blue-600" />
-        },
-        {
-          id: 'volunteer',
-          title: 'Volunteer / Karyakarta',
-          subtitle: 'Tasks, leaderboard & drives',
-          path: '/volunteer',
-          bgColor: 'bg-indigo-50',
-          icon: <HiHandRaised className="w-5 h-5 text-indigo-600" />
         }
       ]
     },

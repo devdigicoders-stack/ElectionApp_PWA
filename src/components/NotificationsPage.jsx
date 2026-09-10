@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { useTenant } from '../context/TenantContext';
 import { api } from '../services/api';
 import { 
@@ -197,10 +198,7 @@ export default function NotificationsPage() {
       <div className="flex-1 overflow-y-auto w-full p-4">
         <div className="flex flex-col gap-3 pb-6">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-48">
-              <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs font-bold text-gray-400 mt-2">Loading updates...</p>
-            </div>
+            <LoadingSpinner message="सूचनाएं लोड हो रही हैं..." />
           ) : filtered.length > 0 ? (
             filtered.map((note) => (
               <div

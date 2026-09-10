@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -77,7 +78,14 @@ export default function HomePage() {
         }
 
         // 3. Fetch Active Polls
-        const polls = await api.getActivePolls().catch(() => []);
+        const pollsRes = await api.getActivePolls().catch(() => []);
+        const polls = Array.isArray(pollsRes)
+          ? pollsRes
+          : (Array.isArray(pollsRes?.items)
+              ? pollsRes.items
+              : (Array.isArray(pollsRes?.data?.items)
+                  ? pollsRes.data.items
+                  : (Array.isArray(pollsRes?.data) ? pollsRes.data : [])));
         if (Array.isArray(polls) && polls.length > 0) {
           setActivePoll(polls[0]);
         }
@@ -226,7 +234,7 @@ export default function HomePage() {
     { name: 'Complaint', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bgColor: 'bg-[#fff3e0]', color: 'text-[#d84315]', path: '/my-complaints' },
     { name: 'Membership', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', bgColor: 'bg-[#ffebee]', color: 'text-[#c62828]', path: '/membership' },
     { name: 'Gallery', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', bgColor: 'bg-[#e8f5e9]', color: 'text-[#2e7d32]', path: '/photo-gallery' },
-    { name: 'Volunteer', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', bgColor: 'bg-[#f3e5f5]', color: 'text-[#8e24aa]', path: '/volunteer' },
+    { name: 'About', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bgColor: 'bg-[#f3e5f5]', color: 'text-[#8e24aa]', path: '/about' },
     { name: 'News', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z', bgColor: 'bg-[#e0f7fa]', color: 'text-[#00838f]', path: '/latest-updates' },
   ];
 
@@ -301,6 +309,11 @@ export default function HomePage() {
         </div>
       </div>
 
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner message="मुख्य पृष्ठ लोड हो रहा है..." />
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto w-full relative">
         {/* Slider Banner (Strictly from GET /banners API) */}
         {displaySlides.length > 0 && (
@@ -385,38 +398,6 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Left & Right Manual Slide Arrows */}
-            {displaySlides.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentSlide((prev) => (prev - 1 + displaySlides.length) % displaySlides.length);
-                  }}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center z-30 active:scale-90 transition-all backdrop-blur-xs"
-                  title="Previous Banner"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentSlide((prev) => (prev + 1) % displaySlides.length);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center z-30 active:scale-90 transition-all backdrop-blur-xs"
-                  title="Next Banner"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </>
-            )}
-            
             {/* Slide Indicators */}
             {displaySlides.length > 1 && (
               <div className="absolute bottom-2.5 right-4 flex justify-end gap-1.5 z-30">
@@ -816,6 +797,7 @@ export default function HomePage() {
 
         </div>
       </div>
+      )}
 
       <BottomNav />
     </div>

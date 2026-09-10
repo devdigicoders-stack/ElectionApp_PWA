@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { toast } from 'react-toastify';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
@@ -18,21 +19,37 @@ export default function PollsPage() {
   const { primaryColor, secondaryColor } = useTenant();
   const [activeTab, setActiveTab] = useState('Active');
   const [pollData, setPollData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadPolls = async () => {
       try {
-        const livePolls = await api.getActivePolls().catch(() => null);
+        setIsLoading(true);
+        const liveRes = await api.getActivePolls().catch(() => null);
         const storedPolls = storage.getPolls();
         const votedMap = storage.getVotedPolls();
         
+        const livePolls = Array.isArray(liveRes)
+          ? liveRes
+          : (Array.isArray(liveRes?.items)
+              ? liveRes.items
+              : (Array.isArray(liveRes?.data?.items)
+                  ? liveRes.data.items
+                  : (Array.isArray(liveRes?.data) ? liveRes.data : [])));
+
         if (Array.isArray(livePolls) && livePolls.length > 0) {
           // Merge with persistent voted map and stored cache
           const merged = livePolls.map(live => {
             const pId = String(live._id || live.id);
-            const votedOption = votedMap[pId] || storedPolls.find(s => String(s._id || s.id) === pId)?.userVoted;
-            if (votedOption) {
-              return { ...live, userVoted: votedOption, isVoted: true };
+            const votedOption = live.myOptionId || votedMap[pId] || storedPolls.find(s => String(s._id || s.id) === pId)?.userVoted;
+            if (votedOption || live.hasVoted) {
+              return { 
+                ...live, 
+                userVoted: votedOption || live.myOptionId, 
+                isVoted: true,
+                hasVoted: true,
+                canViewResults: true
+              };
             }
             return live;
           });
@@ -59,6 +76,8 @@ export default function PollsPage() {
           return p;
         });
         setPollData(fallback);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -161,7 +180,11 @@ export default function PollsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
-        {activeTab === 'Active' ? (
+        {isLoading ? (
+          <div className="py-12 flex items-center justify-center">
+            <LoadingSpinner message="सर्वेक्षण और पोल लोड हो रहे हैं..." />
+          </div>
+        ) : activeTab === 'Active' ? (
           <div className="flex flex-col gap-4 pb-6">
             <div 
               className="rounded-2xl p-4 text-white shadow-sm flex items-center gap-3.5"

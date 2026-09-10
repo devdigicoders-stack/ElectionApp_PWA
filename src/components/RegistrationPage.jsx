@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import LoadingSpinner from './LoadingSpinner';
 import { toast } from 'react-toastify';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
@@ -454,13 +455,7 @@ export default function RegistrationPage() {
         <div className="w-full max-w-md mx-auto space-y-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           
           {fetchingSchema ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-gray-400">
-              <div 
-                className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin"
-                style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
-              ></div>
-              <p className="text-xs font-semibold">Loading registration form...</p>
-            </div>
+            <LoadingSpinner message="पंजीकरण फॉर्म लोड हो रहा है..." />
           ) : formFields.length > 0 ? (
             // 100% Dynamic fields mapping directly from backend schema response
             formFields.map(field => renderDynamicField(field))

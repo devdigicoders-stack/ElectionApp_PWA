@@ -4,6 +4,7 @@ import { storage } from '../services/storage';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { 
   HiMegaphone, 
   HiWrenchScrewdriver, 
@@ -70,7 +71,15 @@ export default function MyAreaPage() {
           api.getEvents({ limit: 6 }).catch(() => [])
         ]);
 
-        if (Array.isArray(pollsRes)) setPolls(pollsRes);
+        const pollsList = Array.isArray(pollsRes)
+          ? pollsRes
+          : (Array.isArray(pollsRes?.items)
+              ? pollsRes.items
+              : (Array.isArray(pollsRes?.data?.items)
+                  ? pollsRes.data.items
+                  : (Array.isArray(pollsRes?.data) ? pollsRes.data : [])));
+
+        if (Array.isArray(pollsList)) setPolls(pollsList);
         if (Array.isArray(worksRes?.data || worksRes)) setAreaWorks(worksRes?.data || worksRes);
         if (Array.isArray(newsRes?.data || newsRes)) setAreaNews(newsRes?.data || newsRes);
         if (Array.isArray(eventsRes?.data || eventsRes)) setAreaEvents(eventsRes?.data || eventsRes);
@@ -162,8 +171,11 @@ export default function MyAreaPage() {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-
-        {activeTab === 'overview' && (
+        {isLoading ? (
+          <LoadingSpinner message="क्षेत्रीय डेटा लोड हो रहा है..." />
+        ) : (
+          <>
+            {activeTab === 'overview' && (
           <div className="space-y-5">
             {/* Area Hierarchy Cards */}
             <div className="grid grid-cols-3 gap-2">
@@ -397,6 +409,8 @@ export default function MyAreaPage() {
               Request Meeting / File Jan Samasya
             </button>
           </div>
+        )}
+          </>
         )}
 
       </div>

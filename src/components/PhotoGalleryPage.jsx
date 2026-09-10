@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -103,12 +104,7 @@ export default function PhotoGalleryPage() {
       {/* Grid Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div 
-              className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
-            ></div>
-          </div>
+          <LoadingSpinner message="फोटो गैलरी लोड हो रही है..." />
         ) : filteredPhotos.length > 0 ? (
           <div className="grid grid-cols-2 gap-3.5 pb-6">
             {filteredPhotos.map((photo) => (

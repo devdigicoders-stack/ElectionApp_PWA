@@ -1,31 +1,55 @@
 import React from 'react';
 import { useTenant } from '../context/TenantContext';
 
-export default function LoadingSpinner() {
-  const { primaryColor } = useTenant();
+export default function LoadingSpinner({ fullPage = false, message = 'कृपया प्रतीक्षा करें...' }) {
+  const { primaryColor, logoUrl, leaderName } = useTenant();
+  const currentLogo = logoUrl || '/image copy 3.png';
+
+  const content = (
+    <div className="flex flex-col items-center justify-center gap-3 select-none">
+      <div className="relative flex items-center justify-center">
+        {/* Outer Rotating Glowing Ring */}
+        <div 
+          className="w-16 h-16 rounded-full border-3 border-t-transparent animate-spin"
+          style={{ borderColor: `${primaryColor}25`, borderTopColor: primaryColor }}
+        ></div>
+
+        {/* Inner Pulsing Logo */}
+        <div 
+          className="absolute w-11 h-11 rounded-full overflow-hidden bg-white shadow-sm border p-0.5 flex items-center justify-center animate-pulse"
+          style={{ borderColor: `${primaryColor}40` }}
+        >
+          <img 
+            src={currentLogo} 
+            alt={leaderName || 'Loading'} 
+            className="w-full h-full object-cover rounded-full"
+            onError={(e) => { e.target.src = '/image copy 3.png'; }}
+          />
+        </div>
+      </div>
+
+      {message && (
+        <p 
+          className="text-xs font-bold tracking-wide animate-pulse"
+          style={{ color: primaryColor }}
+        >
+          {message}
+        </p>
+      )}
+    </div>
+  );
+
+  if (fullPage) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-xs">
+        {content}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-center py-4">
-      <svg
-        className="animate-spin h-8 w-8"
-        style={{ color: primaryColor }}
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        ></circle>
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8v8H4z"
-        ></path>
-      </svg>
+    <div className="w-full flex items-center justify-center py-10">
+      {content}
     </div>
   );
 }

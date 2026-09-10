@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 import { HiArrowDownTray, HiXMark, HiDevicePhoneMobile, HiSparkles } from 'react-icons/hi2';
 
 export default function InstallPWAButton() {
+  const location = useLocation();
   const { primaryColor, leaderName, logoUrl } = useTenant();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -66,7 +68,9 @@ export default function InstallPWAButton() {
     setIsMinimized(true);
   };
 
-  if (isStandalone || !isVisible) return null;
+  // Only show install button on Home page
+  const isHomePage = location.pathname === '/' || location.pathname === '/home';
+  if (!isHomePage || isStandalone || !isVisible) return null;
 
   return (
     <>

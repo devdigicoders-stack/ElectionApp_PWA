@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -222,7 +223,9 @@ export default function MyComplaintsPage() {
             return (
               <div key={tab} className="w-1/4 h-full overflow-y-auto p-4">
                 <div className="flex flex-col gap-3 pb-4">
-                  {list.length > 0 ? (
+                  {isLoading ? (
+                    <LoadingSpinner message="शिकायतें लोड हो रही हैं..." />
+                  ) : list.length > 0 ? (
                     list.map(complaint => (
                       <div 
                         key={complaint.id} 

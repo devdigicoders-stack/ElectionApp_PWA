@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BottomNav from './BottomNav';
+import LoadingSpinner from './LoadingSpinner';
 import UserAvatar from './UserAvatar';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
@@ -39,6 +40,7 @@ export default function MembershipPage() {
 
     const loadMembership = async () => {
       try {
+        setLoading(true);
         // Fetch tenant config and official membership card
         const [cardRes, memRes, configRes] = await Promise.allSettled([
           api.getMyMembershipCard(),
@@ -84,6 +86,8 @@ export default function MembershipPage() {
         }
       } catch (err) {
         console.warn('Membership fetch error:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -170,8 +174,11 @@ export default function MembershipPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto w-full p-4">
-        
-        {activeView === 'card' && membershipData ? (
+        {loading ? (
+          <div className="py-12 flex items-center justify-center">
+            <LoadingSpinner message="सदस्यता कार्ड लोड हो रहा है..." />
+          </div>
+        ) : activeView === 'card' && membershipData ? (
           <div className="flex flex-col gap-5 max-w-md mx-auto">
             
             {/* Digital Identity Card (Themed) */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import LoadingSpinner from './LoadingSpinner';
 import { eventsStorage } from '../services/eventsData';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -76,7 +77,7 @@ export default function EventDetailsPage() {
   if (!event) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#f8fafc]">
-        <p className="text-gray-500 font-bold">Loading Event Details...</p>
+        <LoadingSpinner message="कार्यक्रम का विवरण लोड हो रहा है..." />
       </div>
     );
   }

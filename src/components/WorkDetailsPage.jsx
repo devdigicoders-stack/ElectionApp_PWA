@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { HiArrowLeft } from 'react-icons/hi2';
 import { toast } from 'react-toastify';
+import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 
@@ -52,11 +53,8 @@ export default function WorkDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-white">
-        <div 
-          className="w-8 h-8 border-3 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: primaryColor, borderTopColor: 'transparent' }}
-        ></div>
+      <div className="w-full h-screen flex items-center justify-center bg-[#f8fafc]">
+        <LoadingSpinner message="कार्य का विवरण लोड हो रहा है..." />
       </div>
     );
   }
