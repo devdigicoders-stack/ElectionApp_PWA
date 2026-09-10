@@ -43,27 +43,31 @@ export default function EventsPage() {
         const res = await api.getEvents().catch(() => []);
         const list = Array.isArray(res) ? res : (res?.data || []);
         if (list.length > 0) {
-          const formatted = list.map(e => ({
-            id: e._id || e.id,
-            _id: e._id,
-            title: e.title,
-            eventType: e.eventType || e.category || 'Jan Sabha',
-            category: new Date(e.startDate) < new Date() ? 'Past' : 'Upcoming',
-            date: e.startDate ? new Date(e.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Upcoming',
-            time: e.startDate ? new Date(e.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
-            location: e.location || 'Local Constituency',
-            image: getMediaUrl((Array.isArray(e.images) && e.images[0]) || e.bannerUrl || e.img, 'https://images.unsplash.com/photo-1525013066836-c6090f0ad9d8?auto=format&fit=crop&q=80&w=600'),
-            description: e.description || '',
-            requiresRegistration: e.isRegistrationRequired !== false,
-          }));
+          const formatted = list.map(e => {
+            const hasPassed = e.endDate ? new Date(e.endDate) < new Date() : (e.startDate ? new Date(e.startDate) < new Date() : false);
+            return {
+              id: e._id || e.id,
+              _id: e._id,
+              title: e.title,
+              eventType: e.eventType || e.category || 'Jan Sabha',
+              category: hasPassed ? 'Past' : 'Upcoming',
+              date: e.startDate ? new Date(e.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Upcoming',
+              time: e.startDate ? new Date(e.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
+              location: e.location || 'Local Constituency',
+              image: getMediaUrl((Array.isArray(e.images) && e.images[0]) || e.bannerUrl || e.img, 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&q=80&w=800'),
+              description: e.description || '',
+              requiresRegistration: e.isRegistrationRequired !== false,
+            };
+          });
           setEvents(formatted);
         } else {
-          setEvents([]);
+          // If no events created in backend yet, provide high-quality placeholder preview
+          setEvents(eventsStorage.getEvents());
         }
         setRsvpStatus(eventsStorage.getRsvp());
       } catch (err) {
         console.warn('Error fetching events:', err);
-        setEvents([]);
+        setEvents(eventsStorage.getEvents());
       } finally {
         setIsLoading(false);
       }
