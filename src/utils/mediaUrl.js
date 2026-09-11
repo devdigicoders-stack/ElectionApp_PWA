@@ -6,23 +6,20 @@
 
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl && !envUrl.includes('localhost')) {
+  if (envUrl) {
     return envUrl;
   }
   if (typeof window !== 'undefined') {
-    if (window.location.hostname.includes('vercel.app') || (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname))) {
-      return 'https://electionapp-backend-jai8.onrender.com';
-    }
     if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname)) {
       return `http://${window.location.hostname}:3001`;
     }
   }
-  return envUrl || 'https://electionapp-backend-jai8.onrender.com';
+  return 'https://electionapp-backend-jai8.onrender.com';
 };
 
 const BACKEND_BASE = getBaseUrl().replace(/\/+$/, '');
 
-export function getMediaUrl(url, fallback = '/image copy 3.png') {
+export function getMediaUrl(url, fallback = null) {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return fallback;
   }

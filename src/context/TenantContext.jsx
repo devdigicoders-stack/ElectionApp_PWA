@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { getMediaUrl } from '../utils/mediaUrl';
 
 const currentSlug = api.getTenantSlug();
 const CACHE_KEY = currentSlug ? `pwa_cached_tenant_config_${currentSlug}` : 'pwa_cached_tenant_config_default';
@@ -99,7 +100,8 @@ export const TenantProvider = ({ children }) => {
           const brandingData = config.branding || {};
           const primary = brandingData.primaryColor || DEFAULT_GERUA;
           const secondary = brandingData.secondaryColor || DEFAULT_BLACK;
-          const favicon = brandingData.faviconUrl || brandingData.logoUrl || '/image copy 3.png';
+          const rawFavicon = brandingData.faviconUrl || brandingData.logoUrl || brandingData.logo || null;
+          const favicon = rawFavicon ? getMediaUrl(rawFavicon) : null;
           const leader = brandingData.leaderName || config.tenant?.name || config.name || 'जनसेवा';
 
           // Inject CSS variables globally to the root document
@@ -115,7 +117,8 @@ export const TenantProvider = ({ children }) => {
           // Dynamically update favicon directly on existing link tag
           const updateFavicon = (url) => {
             if (!url) return;
-            const fullUrl = url.includes('?') ? `${url}&v=${Date.now()}` : `${url}?v=${Date.now()}`;
+            const isDataUri = url.startsWith('data:');
+            const fullUrl = isDataUri ? url : (url.includes('?') ? `${url}&v=${Date.now()}` : `${url}?v=${Date.now()}`);
             
             let faviconEl = document.getElementById('app-favicon');
             if (!faviconEl) {
@@ -124,7 +127,7 @@ export const TenantProvider = ({ children }) => {
               faviconEl.rel = 'icon';
               document.head.appendChild(faviconEl);
             }
-            faviconEl.type = 'image/png';
+            faviconEl.type = isDataUri ? (url.split(';')[0].replace('data:', '') || 'image/png') : 'image/png';
             faviconEl.href = fullUrl;
 
             // Also update or add apple-touch-icon
@@ -204,13 +207,14 @@ export const TenantProvider = ({ children }) => {
     fetchConfig();
   }, []);
 
-  const branding = tenantConfig?.branding || DUMMY_DEFAULT_CONFIG.branding;
-  const tenant = tenantConfig?.tenant || DUMMY_DEFAULT_CONFIG.tenant;
-  const primaryColor = branding.primaryColor || DEFAULT_GERUA;
-  const secondaryColor = branding.secondaryColor || DEFAULT_BLACK;
-  const leaderName = branding.leaderName || tenant.name || 'जनप्रतिनिधि';
-  const tagline = branding.tagline || 'सेवा, संकल्प और विकास ही हमारी पहचान';
-  const logoUrl = branding.logoUrl || '/image copy 3.png';
+  const branding = tenantConfig?.branding || (currentSlug ? {} : DUMMY_DEFAULT_CONFIG.branding);
+  const tenant = tenantConfig?.tenant || (currentSlug ? {} : DUMMY_DEFAULT_CONFIG.tenant);
+  const primaryColor = branding?.primaryColor || DEFAULT_GERUA;
+  const secondaryColor = branding?.secondaryColor || DEFAULT_BLACK;
+  const leaderName = branding?.leaderName || tenant?.name || (currentSlug ? '' : 'जनप्रतिनिधि');
+  const tagline = branding?.tagline || (currentSlug ? '' : 'सेवा, संकल्प और विकास ही हमारी पहचान');
+  const rawLogo = branding?.logoUrl || branding?.logo || '';
+  const logoUrl = rawLogo ? getMediaUrl(rawLogo) : '';
 
   return (
     <TenantContext.Provider

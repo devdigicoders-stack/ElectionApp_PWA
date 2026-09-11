@@ -42,10 +42,19 @@ export default function MyProfilePage() {
     polls: 0
   });
 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   useEffect(() => {
     // Initial load from local storage
+    const token = storage.getToken();
     const localUser = storage.getUser();
-    if (localUser) setUser(localUser);
+    if (token && localUser) {
+      setIsLoggedIn(true);
+      setUser(localUser);
+    } else {
+      setIsLoggedIn(false);
+      setUser({ name: 'Guest User', mobile: '', district: '', assembly: '' });
+    }
 
     // Fetch live citizen profile from backend
     const loadCitizenProfile = async () => {
@@ -218,25 +227,39 @@ export default function MyProfilePage() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <h2 className="text-base font-black text-gray-900 truncate">{user.name || 'Citizen User'}</h2>
-                {user.isProfileComplete && <HiCheckBadge className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />}
+                <h2 className="text-base font-black text-gray-900 truncate">
+                  {isLoggedIn ? (user.name || 'Citizen User') : 'Guest User'}
+                </h2>
+                {isLoggedIn && user.isProfileComplete && <HiCheckBadge className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />}
               </div>
-              {user.mobile && (
+              {isLoggedIn && user.mobile ? (
                 <p className="text-xs text-gray-500 font-semibold mb-1.5">+91 {user.mobile}</p>
+              ) : (
+                <p className="text-xs text-gray-400 font-medium mb-1.5">Login to access profile services</p>
               )}
               
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span 
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[0.65rem] font-extrabold border"
-                  style={{ 
-                    backgroundColor: `${primaryColor}15`, 
-                    color: primaryColor,
-                    borderColor: `${primaryColor}30`
-                  }}
-                >
-                  <HiSparkles className="w-3 h-3" />
-                  <span>Verified Citizen</span>
-                </span>
+                {isLoggedIn ? (
+                  <span 
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[0.65rem] font-extrabold border"
+                    style={{ 
+                      backgroundColor: `${primaryColor}15`, 
+                      color: primaryColor,
+                      borderColor: `${primaryColor}30`
+                    }}
+                  >
+                    <HiSparkles className="w-3 h-3" />
+                    <span>Verified Citizen</span>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[0.7rem] font-black text-white shadow-xs active:scale-95 transition-all"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <span>Login / Register</span>
+                  </button>
+                )}
                 {user.assembly && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] font-bold bg-gray-100 text-gray-600 truncate max-w-[180px]">
                     {user.assembly}
@@ -305,13 +328,15 @@ export default function MyProfilePage() {
           ))}
 
           {/* Logout Action */}
-          <button
-            onClick={handleLogout}
-            className="w-full py-3.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl text-xs font-black shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 mb-6"
-          >
-            <HiArrowRightOnRectangle className="w-4 h-4 stroke-[2.5]" />
-            <span>Sign Out / Log Out</span>
-          </button>
+          {isLoggedIn && (
+            <button
+              onClick={handleLogout}
+              className="w-full py-3.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl text-xs font-black shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 mb-6"
+            >
+              <HiArrowRightOnRectangle className="w-4 h-4 stroke-[2.5]" />
+              <span>Sign Out / Log Out</span>
+            </button>
+          )}
         </div>
 
       </div>

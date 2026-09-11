@@ -99,12 +99,14 @@ export default function InstallPWAButton() {
                 className="w-11 h-11 rounded-xl overflow-hidden shrink-0 border bg-white p-0.5 shadow-xs flex items-center justify-center"
                 style={{ borderColor: `${primaryColor}30` }}
               >
-                <img 
-                  src={logoUrl || '/image copy 3.png'} 
-                  alt="App Icon" 
-                  className="w-full h-full object-cover rounded-lg" 
-                  onError={(e) => { e.target.src = '/image copy 3.png'; }}
-                />
+                {logoUrl ? (
+                  <img 
+                    src={logoUrl} 
+                    alt="App Icon" 
+                    className="w-full h-full object-cover rounded-lg" 
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : null}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">

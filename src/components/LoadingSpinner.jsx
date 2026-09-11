@@ -3,7 +3,7 @@ import { useTenant } from '../context/TenantContext';
 
 export default function LoadingSpinner({ fullPage = false, message = 'कृपया प्रतीक्षा करें...' }) {
   const { primaryColor, logoUrl, leaderName } = useTenant();
-  const currentLogo = logoUrl || '/image copy 3.png';
+  const currentLogo = logoUrl || '';
 
   const content = (
     <div className="flex flex-col items-center justify-center gap-3 select-none">
@@ -15,17 +15,19 @@ export default function LoadingSpinner({ fullPage = false, message = 'कृप�
         ></div>
 
         {/* Inner Pulsing Logo */}
-        <div 
-          className="absolute w-11 h-11 rounded-full overflow-hidden bg-white shadow-sm border p-0.5 flex items-center justify-center animate-pulse"
-          style={{ borderColor: `${primaryColor}40` }}
-        >
-          <img 
-            src={currentLogo} 
-            alt={leaderName || 'Loading'} 
-            className="w-full h-full object-cover rounded-full"
-            onError={(e) => { e.target.src = '/image copy 3.png'; }}
-          />
-        </div>
+        {currentLogo ? (
+          <div 
+            className="absolute w-11 h-11 rounded-full overflow-hidden bg-white shadow-sm border p-0.5 flex items-center justify-center animate-pulse"
+            style={{ borderColor: `${primaryColor}40` }}
+          >
+            <img 
+              src={currentLogo} 
+              alt={leaderName || 'Loading'} 
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {message && (

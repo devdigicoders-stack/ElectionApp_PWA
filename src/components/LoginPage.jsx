@@ -188,8 +188,8 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Top Floating Back Button */}
-      <div className="absolute top-4 left-4 z-20">
+      {/* Top Floating Back & Skip Buttons */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
         <button
           onClick={() => {
             if (isOtpSent) {
@@ -204,19 +204,31 @@ export default function LoginPage() {
         >
           <HiArrowLeft className="w-5 h-5" />
         </button>
+
+        <button
+          onClick={() => navigate('/home', { replace: true })}
+          className="px-4 py-1.5 rounded-full text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 active:scale-95 transition-all shadow-xs flex items-center gap-1"
+        >
+          <span>Skip to Home</span>
+          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </button>
       </div>
 
       <div className="flex-1 flex flex-col px-6 pt-16 pb-6 overflow-y-auto">
         
         {/* Logo Area */}
-        <div className="flex flex-col items-center mb-6 shrink-0">
-          <img 
-            src={logoUrl || "/image copy 3.png"} 
-            alt="Logo" 
-            className="w-24 h-24 object-contain" 
-            onError={(e) => { e.target.src = '/image copy 3.png'; }}
-          />
-        </div>
+        {logoUrl && (
+          <div className="flex flex-col items-center mb-6 shrink-0">
+            <img 
+              src={logoUrl} 
+              alt="Logo" 
+              className="w-24 h-24 object-contain rounded-full" 
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+        )}
 
         {/* Welcome Text */}
         <div className="mb-8">

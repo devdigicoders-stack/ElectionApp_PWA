@@ -138,6 +138,12 @@ export default function EventsPage() {
 
   const handleGoing = async (eventId, e) => {
     e.stopPropagation();
+    const token = storage.getToken();
+    if (!token) {
+      toast.warn('Please login first to RSVP for this event');
+      navigate('/login');
+      return;
+    }
     try {
       await api.rsvpEvent(eventId, 'going').catch(() => {});
     } catch {}
@@ -361,31 +367,14 @@ export default function EventsPage() {
                             <span className="font-bold text-gray-800 truncate">{event.location}</span>
                           </div>
 
-                          {/* Action Buttons */}
-                          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
-                            <button 
-                              onClick={(e) => handleInterested(event.id, e)}
-                              className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${rsvpStatus[event.id] === 'Interested' ? 'bg-blue-50 border-blue-400 text-blue-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                            >
-                              <HiStar className="w-3.5 h-3.5 text-amber-500" />
-                              <span>Interested</span>
-                            </button>
-
+                          {/* Action Buttons: Only Going button with Login Check */}
+                          <div className="pt-2 border-t border-gray-100">
                             <button 
                               onClick={(e) => handleGoing(event.id, e)}
-                              className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${rsvpStatus[event.id] === 'Going' ? 'bg-green-50 border-green-400 text-green-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                              className={`w-full py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 active:scale-95 ${rsvpStatus[event.id] === 'Going' ? 'bg-green-500 border-green-500 text-white shadow-sm' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
                             >
-                              <HiHandThumbUp className="w-3.5 h-3.5 text-green-600" />
-                              <span>Going</span>
-                            </button>
-
-                            <button 
-                              onClick={(e) => handleRegisterClick(event, e)}
-                              className="py-2 text-white rounded-xl text-xs font-extrabold shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1"
-                              style={{ backgroundColor: primaryColor }}
-                            >
-                              <HiTicket className="w-3.5 h-3.5" />
-                              <span>Pass</span>
+                              <HiHandThumbUp className={`w-4 h-4 ${rsvpStatus[event.id] === 'Going' ? 'text-white' : 'text-green-600'}`} />
+                              <span>{rsvpStatus[event.id] === 'Going' ? 'Attending (Going)' : 'I Am Going'}</span>
                             </button>
                           </div>
 

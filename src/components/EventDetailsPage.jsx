@@ -88,7 +88,16 @@ export default function EventDetailsPage() {
     toast.success('Marked as Interested! Reminder will be sent.');
   };
 
-  const handleGoing = () => {
+  const handleGoing = async () => {
+    const token = storage.getToken();
+    if (!token) {
+      toast.warn('Please login first to RSVP for this event');
+      navigate('/login');
+      return;
+    }
+    try {
+      await api.rsvpEvent(event._id || event.id, 'going').catch(() => {});
+    } catch {}
     eventsStorage.setRsvp(event.id, 'Going');
     setRsvpStatus('Going');
     toast.success('You are attending this event (RSVP: Going)!');
@@ -440,12 +449,14 @@ export default function EventDetailsPage() {
           <HiShare className="w-5 h-5" />
         </button>
         <button 
-          onClick={() => setIsRegisterModalOpen(true)}
-          className="flex-1 h-12 text-white font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all"
-          style={{ backgroundColor: primaryColor }}
+          onClick={handleGoing}
+          className={`flex-1 h-12 font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all ${
+            rsvpStatus === 'Going' ? 'bg-green-600 text-white' : 'text-white'
+          }`}
+          style={{ backgroundColor: rsvpStatus === 'Going' ? '#16a34a' : primaryColor }}
         >
-          <HiTicket className="w-5 h-5" />
-          <span>Register for Event Pass</span>
+          <HiHandThumbUp className="w-5 h-5" />
+          <span>{rsvpStatus === 'Going' ? 'Attending Event (Going)' : 'I Am Going (Confirm RSVP)'}</span>
         </button>
       </div>
 

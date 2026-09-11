@@ -197,12 +197,14 @@ export default function MembershipPage() {
               {/* Card Top */}
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-2.5">
-                  <img 
-                    src={tenantConfig?.branding?.logoUrl || "/image copy 3.png"} 
-                    alt="Logo" 
-                    className="w-10 h-10 object-contain drop-shadow" 
-                    onError={(e) => { e.target.src = '/image copy 3.png'; }}
-                  />
+                  {(tenantConfig?.branding?.logoUrl || tenantConfig?.branding?.logo) ? (
+                    <img 
+                      src={tenantConfig?.branding?.logoUrl || tenantConfig?.branding?.logo} 
+                      alt="Logo" 
+                      className="w-10 h-10 object-contain drop-shadow rounded-full" 
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : null}
                   <div>
                     <h3 
                       className="text-sm font-black tracking-wider leading-none uppercase"

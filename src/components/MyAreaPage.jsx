@@ -98,7 +98,6 @@ export default function MyAreaPage() {
     { key: 'news', label: 'News' },
     { key: 'works', label: 'Works' },
     { key: 'events', label: 'Events' },
-    { key: 'reps', label: 'Karyakarta' },
   ];
 
   const areaLevels = [
@@ -149,9 +148,9 @@ export default function MyAreaPage() {
         </div>
       </div>
 
-      {/* Tabs – perfectly fitted 5 tabs */}
+      {/* Tabs – 4 tabs */}
       <div className="shrink-0 -mt-6 px-4 relative z-10">
-        <div className="bg-white rounded-2xl shadow-md p-1 grid grid-cols-5 gap-1 border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-md p-1 grid grid-cols-4 gap-1 border border-gray-100">
           {tabs.map(tab => (
             <button
               key={tab.key}
@@ -357,57 +356,6 @@ export default function MyAreaPage() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {activeTab === 'reps' && (
-          <div className="space-y-3 pb-6">
-            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex items-center gap-3">
-              <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
-              >
-                <HiUserGroup className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black text-gray-900">Ward & Booth Coordinators</h4>
-                <p className="text-[0.65rem] text-gray-600 font-medium mt-0.5">Reach out to your local karyakarta for assistance.</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {localRepresentatives.map((rep, idx) => (
-                <div key={idx} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-sm text-gray-600">
-                      {rep.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-extrabold text-gray-900 flex items-center gap-1">
-                        <span>{rep.name}</span>
-                        <HiCheckBadge className="w-3.5 h-3.5 text-blue-500" />
-                      </h4>
-                      <p className="text-[0.65rem] font-bold text-gray-400">{rep.designation} • {rep.ward}</p>
-                    </div>
-                  </div>
-                  <a 
-                    href={`tel:${rep.phone.replace(/[^0-9+]/g, '')}`} 
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-xs active:scale-95 transition-all"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    <HiPhone className="w-4 h-4" />
-                  </a>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => navigate('/complaint')}
-              className="w-full py-3 rounded-xl text-white font-extrabold text-xs shadow-md active:scale-95 transition-all mt-3"
-              style={{ backgroundColor: primaryColor }}
-            >
-              Request Meeting / File Jan Samasya
-            </button>
           </div>
         )}
           </>

@@ -170,7 +170,7 @@ export default function HomePage() {
 
   const appName = leaderName || tenantConfig?.branding?.leaderName || tenantConfig?.tenant?.name || 'जनसंपर्क';
   const appTagline = tagline || tenantConfig?.branding?.tagline || '';
-  const currentLogo = logoUrl || tenantConfig?.branding?.logoUrl || '/image copy 3.png';
+  const currentLogo = logoUrl || tenantConfig?.branding?.logoUrl || tenantConfig?.branding?.logo || '';
 
   // Display slides from backend GET /banners API; if no promotional banners exist, show Party Logo card
   const displaySlides = banners.length > 0
@@ -276,12 +276,14 @@ export default function HomePage() {
             className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 bg-white shadow-xs flex items-center justify-center p-0.5"
             style={{ borderColor: `${primaryColor}30` }}
           >
-            <img
-              src={currentLogo}
-              alt="Logo"
-              className="w-full h-full object-cover rounded-full"
-              onError={(e) => { e.target.src = '/image copy 3.png'; }}
-            />
+            {currentLogo ? (
+              <img
+                src={currentLogo}
+                alt="Logo"
+                className="w-full h-full object-cover rounded-full"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            ) : null}
           </div>
           <div className="flex flex-col justify-center min-w-0">
             <h1 className="text-base font-black text-gray-900 leading-tight tracking-tight truncate max-w-[175px] sm:max-w-xs">{appName}</h1>
@@ -372,7 +374,7 @@ export default function HomePage() {
                           src={slide.img}
                           alt={slide.title}
                           className="w-full h-full object-contain pointer-events-none"
-                          onError={(e) => { e.target.src = '/image copy 3.png'; }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
                         />
                       </div>
                     ) : (
@@ -382,7 +384,12 @@ export default function HomePage() {
                           alt={slide.title}
                           className="w-full h-full object-cover object-top pointer-events-none"
                           onError={(e) => {
-                            e.target.style.opacity = '0.3';
+                            if (currentLogo) {
+                              e.target.src = currentLogo;
+                              e.target.className = 'w-full h-full object-contain p-4 pointer-events-none';
+                            } else {
+                              e.target.style.display = 'none';
+                            }
                           }}
                         />
                       </div>

@@ -17,7 +17,7 @@ import OnboardingPage from './components/OnboardingPage';
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
 
-// Route helper to show splash on first visit
+// Route helper to show splash on app load
 const InitialLaunch = () => {
   const hasSeenSplash = localStorage.getItem('pwa_has_seen_splash');
   if (!hasSeenSplash) {

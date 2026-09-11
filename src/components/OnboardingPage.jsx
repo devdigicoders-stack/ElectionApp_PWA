@@ -27,12 +27,14 @@ export default function OnboardingPage() {
       <div className="flex-1 flex flex-col items-center pt-8 px-6 pb-6 overflow-y-auto">
         {/* Logo and Titles */}
         <div className="flex flex-col items-center mb-2 shrink-0">
-           <img 
-             src={logoUrl || "/image copy 3.png"} 
-             alt="Logo" 
-             className="w-16 h-16 object-contain mb-2 drop-shadow-sm" 
-             onError={(e) => { e.target.src = '/image copy 3.png'; }} 
-           />
+           {logoUrl ? (
+             <img 
+               src={logoUrl} 
+               alt="Logo" 
+               className="w-16 h-16 object-contain mb-2 drop-shadow-sm rounded-full" 
+               onError={(e) => { e.target.style.display = 'none'; }} 
+             />
+           ) : null}
            <h1 className="text-xl font-extrabold text-gray-900 tracking-wide text-center">
              {leaderName || 'जनप्रतिनिधि'}
            </h1>

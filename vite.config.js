@@ -8,8 +8,5 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    headers: {
-      'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
-    }
   }
 })

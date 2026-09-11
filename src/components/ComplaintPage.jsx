@@ -151,6 +151,12 @@ export default function ComplaintPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const token = storage.getToken();
+    if (!token) {
+      toast.info('Please log in or register to submit a grievance');
+      navigate('/login');
+      return;
+    }
     if (!selectedCategory || !formData.title.trim() || !formData.description.trim()) {
       toast.error('Please fill all required fields');
       return;
