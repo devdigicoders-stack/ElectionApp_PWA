@@ -5,9 +5,11 @@ import BottomNav from './BottomNav';
 import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function DevelopmentPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { primaryColor, secondaryColor } = useTenant();
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,12 +53,12 @@ export default function DevelopmentPage() {
   const getStatusBadge = (status) => {
     const s = String(status || '').toLowerCase();
     if (s.includes('complete')) {
-      return { label: 'Completed', color: 'bg-green-100 text-green-700' };
+      return { label: t('completed'), color: 'bg-green-100 text-green-700' };
     }
     if (s.includes('progress') || s.includes('ongoing')) {
-      return { label: 'In Progress', color: 'bg-blue-100 text-blue-700' };
+      return { label: t('inProgress'), color: 'bg-blue-100 text-blue-700' };
     }
-    return { label: 'Planned / Proposed', color: 'bg-purple-100 text-purple-700' };
+    return { label: t('planned'), color: 'bg-purple-100 text-purple-700' };
   };
 
   return (
@@ -72,7 +74,7 @@ export default function DevelopmentPage() {
             <HiArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-base font-extrabold text-[#1e293b] truncate leading-tight">
-            Development Works (विकास कार्य)
+            {t('worksTitle')}
           </h1>
         </div>
       </div>
@@ -93,7 +95,7 @@ export default function DevelopmentPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none sm:text-sm font-medium transition-shadow shadow-sm"
               style={{ outlineColor: primaryColor }}
-              placeholder="Search development works..."
+              placeholder={t('searchWorksPlaceholder')}
             />
           </div>
 
@@ -110,14 +112,14 @@ export default function DevelopmentPage() {
                 }`}
                 style={activeFilter === filter ? { backgroundColor: primaryColor } : {}}
               >
-                {filter}
+                {filter === 'All' ? t('allFilter') : filter}
               </button>
             ))}
           </div>
 
           {/* Works List */}
           {isLoading ? (
-            <LoadingSpinner message="विकास कार्य लोड हो रहे हैं..." />
+            <LoadingSpinner message={t('loading')} />
           ) : filteredWorks.length > 0 ? (
             <div className="flex flex-col gap-4">
               {filteredWorks.map((work) => {
@@ -162,8 +164,8 @@ export default function DevelopmentPage() {
             </div>
           ) : (
             <div className="py-12 text-center bg-white rounded-2xl border border-dashed border-gray-200 p-6">
-              <p className="text-sm font-bold text-gray-700 mb-1">No development works found</p>
-              <p className="text-xs text-gray-400">Try changing your search or category filter.</p>
+              <p className="text-sm font-bold text-gray-700 mb-1">{t('noWorksFound')}</p>
+              <p className="text-xs text-gray-400">{t('noWorksFoundDesc')}</p>
             </div>
           )}
 

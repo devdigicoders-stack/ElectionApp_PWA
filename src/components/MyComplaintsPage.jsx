@@ -232,16 +232,28 @@ export default function MyComplaintsPage() {
                         onClick={() => setSelectedComplaint(complaint)}
                         className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-3.5 items-center relative active:scale-[0.98] transition-transform cursor-pointer hover:border-gray-300"
                       >
-                        <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-gray-100 bg-gray-100 flex items-center justify-center">
-                          <img 
-                            src={Array.isArray(complaint.images) && complaint.images.length > 0 && complaint.images[0] ? complaint.images[0] : '/health_center.jpg'} 
-                            alt={complaint.title} 
-                            className="w-full h-full object-cover" 
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '/health_center.jpg';
-                            }}
-                          />
+                        <div 
+                          className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border flex items-center justify-center relative shadow-xs"
+                          style={{ 
+                            backgroundColor: `${primaryColor}12`, 
+                            borderColor: `${primaryColor}25` 
+                          }}
+                        >
+                          {Array.isArray(complaint.images) && complaint.images.length > 0 && complaint.images[0] ? (
+                            <img 
+                              src={complaint.images[0]} 
+                              alt={complaint.title} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <HiFolderOpen 
+                              className="w-7 h-7" 
+                              style={{ color: primaryColor }} 
+                            />
+                          )}
                         </div>
                         <div className="flex flex-col flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1 mb-1">
@@ -334,23 +346,26 @@ export default function MyComplaintsPage() {
               
               {/* Image & Details */}
               <div 
-                className="flex flex-col gap-3 border p-3 rounded-2xl"
-                style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}25` }}
+                className="flex flex-col gap-3 border p-3.5 rounded-2xl"
+                style={{ backgroundColor: `${primaryColor}08`, borderColor: `${primaryColor}20` }}
               >
                 <div className="flex gap-3 items-center">
                   <div 
-                    className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border bg-white flex items-center justify-center"
-                    style={{ borderColor: `${primaryColor}40` }}
+                    className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border bg-white flex items-center justify-center shadow-xs"
+                    style={{ borderColor: `${primaryColor}30` }}
                   >
-                    <img 
-                      src={Array.isArray(selectedComplaint.images) && selectedComplaint.images.length > 0 && selectedComplaint.images[0] ? selectedComplaint.images[0] : '/health_center.jpg'} 
-                      alt="Complaint" 
-                      className="w-full h-full object-cover" 
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = '/health_center.jpg';
-                      }}
-                    />
+                    {Array.isArray(selectedComplaint.images) && selectedComplaint.images.length > 0 && selectedComplaint.images[0] ? (
+                      <img 
+                        src={selectedComplaint.images[0]} 
+                        alt="Complaint" 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <HiFolderOpen className="w-8 h-8" style={{ color: primaryColor }} />
+                    )}
                   </div>
                   <div className="flex flex-col justify-center min-w-0 flex-1">
                     <span className="text-[0.7rem] font-bold" style={{ color: primaryColor }}>Category: {selectedComplaint.category || 'General'}</span>

@@ -19,19 +19,22 @@ export default function NotificationsPage() {
   const { primaryColor, secondaryColor } = useTenant();
   const [activeFilter, setActiveFilter] = useState('All');
   const [notifications, setNotifications] = useState([]);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      const slug = api.getTenantSlug();
-      if (!slug) {
+      const token = api.getToken();
+      if (!token) {
+        setIsUnauthorized(true);
         setIsLoading(false);
         return;
       }
 
       try {
         setIsLoading(true);
-        const res = await api.getMyNotifications().catch(() => []);
+        setIsUnauthorized(false);
+        const res = await api.getMyNotifications();
         const list = Array.isArray(res) ? res : (res?.data || []);
         
         if (list.length > 0) {
@@ -54,7 +57,11 @@ export default function NotificationsPage() {
           setNotifications([]);
         }
       } catch (err) {
+        if (err.message && err.message.toLowerCase().includes('unauthorized')) {
+          setIsUnauthorized(true);
+        }
         console.warn('Error fetching notifications:', err);
+        setNotifications([]);
       } finally {
         setIsLoading(false);
       }
@@ -232,15 +239,30 @@ export default function NotificationsPage() {
               </div>
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-center p-6 bg-white rounded-2xl border border-gray-100 my-4">
+            <div className="flex flex-col items-center justify-center h-52 text-center p-6 bg-white rounded-2xl border border-gray-100 my-4">
               <div 
                 className="w-14 h-14 rounded-full flex items-center justify-center mb-2"
                 style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
               >
                 <HiBell className="w-7 h-7" />
               </div>
-              <p className="text-gray-800 font-extrabold text-sm">No Notifications Found</p>
-              <p className="text-gray-400 font-semibold text-xs mt-0.5">You're all caught up with latest updates!</p>
+              <p className="text-gray-800 font-extrabold text-sm">
+                {isUnauthorized ? 'Login to View Notifications' : 'No Notifications Found'}
+              </p>
+              <p className="text-gray-400 font-semibold text-xs mt-0.5 max-w-xs mb-3">
+                {isUnauthorized 
+                  ? 'Please login with your mobile number to get personalized updates, event reminders & complaint statuses.' 
+                  : "You're all caught up with latest updates!"}
+              </p>
+              {isUnauthorized && (
+                <button
+                  onClick={() => navigate('/login')}
+                  className="px-5 py-2 text-white font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition-all"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Login Now
+                </button>
+              )}
             </div>
           )}
         </div>

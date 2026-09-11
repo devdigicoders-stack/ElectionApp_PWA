@@ -132,7 +132,7 @@ export default function RegistrationPage() {
       const selectedId = selectedAreas[prevLevel?._id];
       if (!selectedId) return [];
       const matchedNode = currentNodes.find(node => String(node._id) === String(selectedId));
-      if (!matchedNode || !matchedNode.children) return [];
+      if (!matchedNode || !Array.isArray(matchedNode.children)) return [];
       currentNodes = matchedNode.children;
     }
     return currentNodes;
@@ -173,10 +173,33 @@ export default function RegistrationPage() {
     setLoading(true);
 
     try {
-      // Call profile complete/update API
-      const res = await api.completeProfile(form);
+      // Structure payload: core fields + nested customFields
+      const coreKeys = ['name', 'gender', 'dob', 'address', 'areaId', 'email', 'mobile'];
+      const customFieldsObj = {};
+      const payload = {
+        name: form.name?.trim(),
+        gender: form.gender,
+        dob: form.dob || undefined,
+        address: form.address?.trim() || undefined,
+        areaId: form.areaId || undefined,
+        email: form.email?.trim() || undefined,
+      };
 
-      const returnedProfile = res?.profile || {};
+      Object.keys(form).forEach(k => {
+        if (!coreKeys.includes(k) && form[k] !== undefined && form[k] !== null && form[k] !== '') {
+          customFieldsObj[k] = form[k];
+          payload[k] = form[k]; // also pass directly for compatibility
+        }
+      });
+
+      if (Object.keys(customFieldsObj).length > 0) {
+        payload.customFields = customFieldsObj;
+      }
+
+      // Call profile complete/update API (POST /registration-form/complete-profile)
+      const res = await api.completeProfile(payload);
+
+      const returnedProfile = res?.profile || res?.user || {};
       const returnedArea = res?.area || {};
 
       const userToSave = {
@@ -244,7 +267,7 @@ export default function RegistrationPage() {
             levels.map((lvl, idx) => {
               const options = getAreaOptionsForLevel(idx);
               const isParentSelected = idx === 0 || selectedAreas[levels[idx - 1]._id];
-              if (!isParentSelected && options.length === 0) return null;
+              if (!isParentSelected && (!options || options.length === 0)) return null;
 
               return (
                 <div key={lvl._id}>
@@ -259,7 +282,7 @@ export default function RegistrationPage() {
                     required={lvl.isRequired}
                   >
                     <option value="">-- {lvl.name} चुनें / Select {lvl.name} --</option>
-                    {options.map((area) => (
+                    {options && options.map((area) => (
                       <option key={area._id} value={area._id}>
                         {area.name} {area.code ? `(${area.code})` : ''}
                       </option>
@@ -448,6 +471,16 @@ export default function RegistrationPage() {
             )}
           </div>
         </div>
+
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={() => navigate('/home', { replace: true })}
+            className="text-xs font-extrabold text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+          >
+            Skip →
+          </button>
+        )}
       </div>
 
       {/* Scrollable Form Body */}

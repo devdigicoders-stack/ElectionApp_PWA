@@ -10,36 +10,40 @@ import { getMediaUrl } from '../utils/mediaUrl';
 
 export default function PhotoGalleryPage() {
   const navigate = useNavigate();
-  const { primaryColor, secondaryColor } = useTenant();
+  const { primaryColor } = useTenant();
   const [activeTab, setActiveTab] = useState('All');
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photos, setPhotos] = useState([]);
+  const [categories, setCategories] = useState(['All']);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const tabs = ['All', 'Rallies', 'Development', 'Public Chaupal', 'Welfare Drives'];
 
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
         setIsLoading(true);
-        const params = { type: 'photo' };
-        if (activeTab !== 'All') {
-          params.category = activeTab;
-        }
+        const params = { type: 'photo', limit: 50 };
         const res = await api.getGallery(params).catch(() => []);
-        const list = Array.isArray(res) ? res : (res?.data || []);
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+
         if (list.length > 0) {
           const formatted = list.map((item, idx) => ({
             id: item._id || item.id || idx + 1,
             category: item.category || 'General',
             title: item.title || 'Event Photo',
+            description: item.description || '',
             date: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
             url: getMediaUrl(item.imageUrl || item.url),
-            height: idx % 3 === 0 ? 'h-64' : (idx % 2 === 0 ? 'h-48' : 'h-56')
+            rawUrl: item.imageUrl || item.url || '',
+            allowDownload: item.allowDownload !== false,
           }));
           setPhotos(formatted);
+
+          // Extract dynamic unique categories from backend items
+          const uniqueCats = ['All', ...new Set(formatted.map(p => p.category).filter(Boolean))];
+          setCategories(uniqueCats);
         } else {
           setPhotos([]);
+          setCategories(['All']);
         }
       } catch (err) {
         console.warn('Gallery fetch error:', err);
@@ -49,7 +53,7 @@ export default function PhotoGalleryPage() {
     };
 
     fetchPhotos();
-  }, [activeTab]);
+  }, []);
 
   const filteredPhotos = activeTab === 'All' 
     ? photos 
@@ -59,7 +63,7 @@ export default function PhotoGalleryPage() {
     if (navigator.share) {
       navigator.share({
         title: photo.title,
-        text: `${photo.title} - ${photo.date}`,
+        text: `${photo.title}${photo.description ? ` - ${photo.description}` : ''}`,
         url: window.location.href,
       }).catch(() => {});
     } else {
@@ -88,18 +92,20 @@ export default function PhotoGalleryPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white px-4 py-3 border-b border-gray-100 shrink-0 shadow-sm z-10 overflow-x-auto scrollbar-hide flex gap-2">
-        {tabs.map(tab => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === tab ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-            style={activeTab === tab ? { backgroundColor: primaryColor } : {}}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {categories.length > 1 && (
+        <div className="bg-white px-4 py-3 border-b border-gray-100 shrink-0 shadow-sm z-10 overflow-x-auto scrollbar-hide flex gap-2">
+          {categories.map(tab => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === tab ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              style={activeTab === tab ? { backgroundColor: primaryColor } : {}}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Grid Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
@@ -119,7 +125,6 @@ export default function PhotoGalleryPage() {
                     src={photo.url} 
                     alt={photo.title} 
                     className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
-                    onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
                   />
                   <div className="absolute top-2 left-2">
                     <span 
@@ -175,7 +180,6 @@ export default function PhotoGalleryPage() {
               src={selectedPhoto.url} 
               alt={selectedPhoto.title} 
               className="max-h-[70vh] max-w-full rounded-2xl object-contain shadow-2xl" 
-              onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
             />
           </div>
 

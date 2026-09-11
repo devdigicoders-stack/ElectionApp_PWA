@@ -12,6 +12,8 @@ import PosterGeneratorPage from './components/PosterGeneratorPage';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { TenantProvider } from './context/TenantContext';
+import { LanguageProvider } from './context/LanguageContext';
+import LanguageModal from './components/LanguageModal';
 import SplashPage from './components/SplashPage';
 import OnboardingPage from './components/OnboardingPage';
 import HomePage from './components/HomePage';
@@ -53,50 +55,54 @@ const Placeholder = ({ name }) => (
 export default function App() {
   return (
     <TenantProvider>
-      <Router>
-        <ScrollToTop />
-        <div className="flex flex-col min-h-screen bg-[#f8fafc]">
-          <ToastContainer position="top-center" autoClose={2000} hideProgressBar theme="colored" />
-          {/* Main content */}
-          <div className="flex-1 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<InitialLaunch />} />
-              <Route path="/splash" element={<SplashPage />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
-              <Route path="/home" element={<HomePage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/works" element={<DevelopmentPage />} />
-              <Route path="/works/:id" element={<WorkDetailsPage />} />
-              <Route path="/events" element={<EventsPage />} />
-              <Route path="/events/:id" element={<EventDetailsPage />} />
-              <Route path="/register" element={<RegistrationPage />} />
-              <Route path="/my-profile" element={<MyProfilePage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-              <Route path="/terms-conditions" element={<TermsPage />} />
-              <Route path="/polls" element={<PollsPage />} />
-              <Route path="/complaint" element={<ComplaintPage />} />
-              <Route path="/my-complaints" element={<MyComplaintsPage />} />
-              <Route path="/photo-gallery" element={<PhotoGalleryPage />} />
-              <Route path="/video-gallery" element={<VideoGalleryPage />} />
-              <Route path="/latest-updates" element={<LatestUpdatesPage />} />
-              <Route path="/menu" element={<MenuPage />} />
-              {/* Future feature placeholders */}
-              <Route path="/membership" element={<MembershipPage />} />
-              <Route path="/volunteer" element={<VolunteerPage />} />
-              <Route path="/manifesto" element={<ManifestoPage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/my-area" element={<MyAreaPage />} />
-              <Route path="/poster-generator" element={<PosterGeneratorPage />} />
-              {/* Catch‑all */}
-              <Route path="*" element={<Placeholder name="404 Not Found" />} />
-            </Routes>
+      <LanguageProvider>
+        <Router>
+          <ScrollToTop />
+          <div className="flex flex-col min-h-screen bg-[#f8fafc]">
+            <ToastContainer position="top-center" autoClose={2000} hideProgressBar theme="colored" />
+            {/* Global Language Selection Modal */}
+            <LanguageModal />
+            {/* Main content */}
+            <div className="flex-1 overflow-y-auto">
+              <Routes>
+                <Route path="/" element={<InitialLaunch />} />
+                <Route path="/splash" element={<SplashPage />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/works" element={<DevelopmentPage />} />
+                <Route path="/works/:id" element={<WorkDetailsPage />} />
+                <Route path="/events" element={<EventsPage />} />
+                <Route path="/events/:id" element={<EventDetailsPage />} />
+                <Route path="/register" element={<RegistrationPage />} />
+                <Route path="/my-profile" element={<MyProfilePage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms-conditions" element={<TermsPage />} />
+                <Route path="/polls" element={<PollsPage />} />
+                <Route path="/complaint" element={<ComplaintPage />} />
+                <Route path="/my-complaints" element={<MyComplaintsPage />} />
+                <Route path="/photo-gallery" element={<PhotoGalleryPage />} />
+                <Route path="/video-gallery" element={<VideoGalleryPage />} />
+                <Route path="/latest-updates" element={<LatestUpdatesPage />} />
+                <Route path="/menu" element={<MenuPage />} />
+                {/* Future feature placeholders */}
+                <Route path="/membership" element={<MembershipPage />} />
+                <Route path="/volunteer" element={<VolunteerPage />} />
+                <Route path="/manifesto" element={<ManifestoPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/my-area" element={<MyAreaPage />} />
+                <Route path="/poster-generator" element={<PosterGeneratorPage />} />
+                {/* Catch‑all */}
+                <Route path="*" element={<Placeholder name="404 Not Found" />} />
+              </Routes>
+            </div>
+            {/* Floating PWA Install Prompt Button for browser users */}
+            <InstallPWAButton />
           </div>
-          {/* Floating PWA Install Prompt Button for browser users */}
-          <InstallPWAButton />
-        </div>
-      </Router>
+        </Router>
+      </LanguageProvider>
     </TenantProvider>
   );
 }

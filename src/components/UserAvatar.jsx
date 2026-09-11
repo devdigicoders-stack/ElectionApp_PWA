@@ -1,6 +1,7 @@
 import React from 'react';
 import { HiUser } from 'react-icons/hi2';
 import { useTenant } from '../context/TenantContext';
+import { getMediaUrl } from '../utils/mediaUrl';
 
 export default function UserAvatar({ 
   src, 
@@ -10,9 +11,16 @@ export default function UserAvatar({
   roundedClassName = "rounded-full" 
 }) {
   const { primaryColor, secondaryColor } = useTenant();
+  const [imgError, setImgError] = React.useState(false);
 
   // If a valid custom photo url is provided (not the old static asset)
-  const hasValidPhoto = src && typeof src === 'string' && src.trim() !== '' && !src.includes('profile_avatar.jpg');
+  const resolvedSrc = getMediaUrl(src);
+  const hasValidPhoto = !imgError && resolvedSrc && typeof resolvedSrc === 'string' && resolvedSrc.trim() !== '' && !resolvedSrc.includes('profile_avatar.jpg');
+
+  // Reset imgError if src changes
+  React.useEffect(() => {
+    setImgError(false);
+  }, [src]);
 
   // Compute 1 or 2 letter initials from name
   const getInitials = (fullName) => {
@@ -26,15 +34,12 @@ export default function UserAvatar({
 
   if (hasValidPhoto) {
     return (
-      <div className={`${className} ${roundedClassName} overflow-hidden bg-gray-100 flex items-center justify-center shrink-0`}>
+      <div className={`${className} ${roundedClassName} overflow-hidden bg-transparent flex items-center justify-center shrink-0`}>
         <img 
-          src={src} 
+          src={resolvedSrc} 
           alt={name || 'User Avatar'} 
           className="w-full h-full object-cover"
-          onError={(e) => {
-            e.target.style.display = 'none';
-            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-          }}
+          onError={() => setImgError(true)}
         />
       </div>
     );

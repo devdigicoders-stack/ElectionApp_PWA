@@ -9,12 +9,7 @@ const getBaseUrl = () => {
   if (envUrl) {
     return envUrl;
   }
-  if (typeof window !== 'undefined') {
-    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname)) {
-      return `http://${window.location.hostname}:3001`;
-    }
-  }
-  return 'https://electionapp-backend-jai8.onrender.com';
+  return 'https://election.digicoders.in';
 };
 
 const BACKEND_BASE = getBaseUrl().replace(/\/+$/, '');

@@ -5,6 +5,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   HiArrowLeft, 
   HiPlus, 
@@ -31,11 +32,11 @@ import {
 
 export default function ComplaintPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const fileInputRef = useRef(null);
   const { primaryColor } = useTenant();
 
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [urgency, setUrgency] = useState('Normal'); // 'Normal' | 'High' | 'Emergency'
   const [areasList, setAreasList] = useState([]);
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -180,7 +181,7 @@ export default function ComplaintPage() {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: selectedCategory,
-        priority: urgency.toLowerCase(),
+        priority: 'medium',
         areaId: selectedAreaId || undefined,
         landmark: formData.landmark.trim() || undefined,
         attachments: uploadedImageUrls,
@@ -193,7 +194,7 @@ export default function ComplaintPage() {
         _id: result.data?._id || `LOCAL_${Date.now()}`,
         title: formData.title,
         category: selectedCategory,
-        priority: urgency,
+        priority: 'Medium',
         status: 'Open',
         createdAt: new Date().toISOString()
       };
@@ -214,13 +215,13 @@ export default function ComplaintPage() {
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 transition-all">
             <HiArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-base font-extrabold text-[#1e293b] truncate">Jan Samasya (Grievance Form)</h1>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate">{t('grievanceForm')}</h1>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner message="फॉर्म लोड हो रहा है..." />
+          <LoadingSpinner message={t('loading')} />
         </div>
       ) : (
       <div className="flex-1 w-full overflow-y-auto">
@@ -229,7 +230,7 @@ export default function ComplaintPage() {
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>1</span>
-                <h2 className="text-sm font-black text-gray-900">Select Category</h2>
+                <h2 className="text-sm font-black text-gray-900">{t('selectCategory')}</h2>
               </div>
             </div>
             <select
@@ -244,47 +245,37 @@ export default function ComplaintPage() {
           <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>2</span>
-              <h2 className="text-sm font-black text-gray-900">Area & Priority</h2>
+              <h2 className="text-sm font-black text-gray-900">{t('areaDetails')}</h2>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5"><HiMapPin className="w-4 h-4" /> Constituency</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5"><HiMapPin className="w-4 h-4" /> {t('constituency')}</label>
               <select value={selectedAreaId} onChange={(e) => setSelectedAreaId(e.target.value)} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs font-bold">
                 {areasList.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Landmark</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('landmark')}</label>
               <input type="text" value={formData.landmark} onChange={(e) => setFormData({...formData, landmark: e.target.value})} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Priority</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['Normal', 'High', 'Emergency'].map((lvl) => (
-                  <button key={lvl} type="button" onClick={() => setUrgency(lvl)} className={`py-2 px-1 rounded-xl text-[0.75rem] font-extrabold border ${urgency === lvl ? 'bg-gray-200 ring-2' : 'bg-gray-50'}`}>
-                    {lvl}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
           <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>3</span>
-              <h2 className="text-sm font-black text-gray-900">Complaint Details</h2>
+              <h2 className="text-sm font-black text-gray-900">{t('complaintDetails')}</h2>
             </div>
-            <input type="text" placeholder="Title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" />
-            <textarea rows="4" placeholder="Description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs resize-none"></textarea>
+            <input type="text" placeholder={t('complaintTitlePlaceholder')} value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" />
+            <textarea rows="4" placeholder={t('complaintDescPlaceholder')} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs resize-none"></textarea>
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5"><HiPhoto className="w-4 h-4" /> Attach Photos ({images.length}/5)</label>
+                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5"><HiPhoto className="w-4 h-4" /> {t('attachPhotos')} ({images.length}/5)</label>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleImagePick} multiple accept="image/*" className="hidden" />
               <div className="flex gap-2.5 overflow-x-auto pb-1">
                 {images.length < 5 && (
                   <button type="button" onClick={() => fileInputRef.current && fileInputRef.current.click()} className="w-20 h-20 shrink-0 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1">
                     <HiPlus className="w-5 h-5" />
-                    <span className="text-[0.65rem] font-bold">Add Photo</span>
+                    <span className="text-[0.65rem] font-bold">{t('addPhoto')}</span>
                   </button>
                 )}
                 {images.map((item, idx) => (
@@ -312,7 +303,7 @@ export default function ComplaintPage() {
             style={{ backgroundColor: primaryColor }}
           >
             <HiSparkles className="w-5 h-5" />
-            <span>{isSubmitting ? 'Submitting Grievance...' : 'Generate Ticket & Submit'}</span>
+            <span>{isSubmitting ? t('submittingGrievance') : t('submitGrievanceBtn')}</span>
           </button>
 
         </div>

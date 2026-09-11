@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import LoadingSpinner from './LoadingSpinner';
 import { eventsStorage } from '../services/eventsData';
@@ -9,9 +9,7 @@ import { getMediaUrl } from '../utils/mediaUrl';
 import { 
   HiCalendarDays, 
   HiMapPin, 
-  HiStar, 
   HiHandThumbUp, 
-  HiTicket, 
   HiShare, 
   HiArrowLeft, 
   HiXMark, 
@@ -22,11 +20,12 @@ import {
 export default function EventDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { primaryColor, secondaryColor } = useTenant();
+  const location = useLocation();
+  const { primaryColor, secondaryColor, logoUrl } = useTenant();
   const [event, setEvent] = useState(null);
   const [activeTab, setActiveTab] = useState('Overview');
-  const [rsvpStatus, setRsvpStatus] = useState(null);
-  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [rsvpStatus, setRsvpStatus] = useState(null); // 'Going' | null
+  const [isGoingLoading, setIsGoingLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   useEffect(() => {
@@ -34,7 +33,7 @@ export default function EventDetailsPage() {
       try {
         const liveEvent = await api.getEventById(id).catch(() => null);
         if (liveEvent) {
-          const firstImg = (Array.isArray(liveEvent.images) && liveEvent.images.length > 0 ? liveEvent.images[0] : null) || liveEvent.bannerUrl || liveEvent.img;
+          const firstImg = liveEvent.bannerUrl || (Array.isArray(liveEvent.images) && liveEvent.images.length > 0 ? liveEvent.images[0] : null) || liveEvent.image || liveEvent.img;
           const hasPassed = liveEvent.status === 'past' || (liveEvent.endDate ? new Date(liveEvent.endDate) < new Date() : (liveEvent.startDate ? new Date(liveEvent.startDate) < new Date() : false));
 
           setEvent({
@@ -49,7 +48,8 @@ export default function EventDetailsPage() {
             mapLink: liveEvent.mapLink || null,
             organizerName: liveEvent.organizerName || '',
             organizerPhone: liveEvent.organizerPhone || '',
-            image: getMediaUrl(firstImg, 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&q=80&w=1200'),
+            image: firstImg ? getMediaUrl(firstImg) : '',
+            hasImage: !!firstImg,
             description: liveEvent.description || '',
             requiresRegistration: liveEvent.registrationRequired === true || liveEvent.isRegistrationRequired === true,
             interestedCount: liveEvent.interestedCount || 0,
@@ -68,9 +68,26 @@ export default function EventDetailsPage() {
 
     fetchEvent();
 
-    const rsvpMap = eventsStorage.getRsvp();
-    if (rsvpMap && rsvpMap[id]) {
-      setRsvpStatus(rsvpMap[id]);
+    if (api.getToken()) {
+      api.getEventRsvp(id)
+        .then((res) => {
+          if (res?.status === 'going' || res?.status === 'interested') {
+            setRsvpStatus(res.status === 'going' ? 'Going' : 'Interested');
+          } else {
+            setRsvpStatus(null);
+          }
+        })
+        .catch(() => {
+          const rsvpMap = eventsStorage.getRsvp();
+          if (rsvpMap && rsvpMap[id]) {
+            setRsvpStatus(rsvpMap[id]);
+          }
+        });
+    } else {
+      const rsvpMap = eventsStorage.getRsvp();
+      if (rsvpMap && rsvpMap[id]) {
+        setRsvpStatus(rsvpMap[id]);
+      }
     }
   }, [id]);
 
@@ -82,33 +99,37 @@ export default function EventDetailsPage() {
     );
   }
 
-  const handleInterested = () => {
-    eventsStorage.setRsvp(event.id, 'Interested');
-    setRsvpStatus('Interested');
-    toast.success('Marked as Interested! Reminder will be sent.');
-  };
-
   const handleGoing = async () => {
-    const token = storage.getToken();
+    const token = api.getToken();
     if (!token) {
-      toast.warn('Please login first to RSVP for this event');
-      navigate('/login');
+      toast.warn('पहले लॉगिन करें');
+      navigate('/login', { state: { from: location.pathname } });
       return;
     }
-    try {
-      await api.rsvpEvent(event._id || event.id, 'going').catch(() => {});
-    } catch {}
-    eventsStorage.setRsvp(event.id, 'Going');
-    setRsvpStatus('Going');
-    toast.success('You are attending this event (RSVP: Going)!');
-  };
 
-  const handleRegisterSubmit = (e) => {
-    e.preventDefault();
-    eventsStorage.setRsvp(event.id, 'Registered');
-    setRsvpStatus('Registered');
-    setIsRegisterModalOpen(false);
-    toast.success('Entry Pass confirmed! Pass generated successfully.');
+    setIsGoingLoading(true);
+    const isCurrentlyGoing = rsvpStatus === 'Going';
+    const newStatus = isCurrentlyGoing ? null : 'Going';
+
+    try {
+      if (isCurrentlyGoing) {
+        await api.removeRsvpEvent(event.id);
+        eventsStorage.setRsvp(event.id, null);
+        setRsvpStatus(null);
+        setEvent(prev => prev ? ({ ...prev, goingCount: Math.max(0, (prev.goingCount || 0) - 1) }) : prev);
+        toast.info('RSVP हटा दिया गया');
+      } else {
+        await api.rsvpEvent(event.id, 'going');
+        eventsStorage.setRsvp(event.id, 'Going');
+        setRsvpStatus('Going');
+        setEvent(prev => prev ? ({ ...prev, goingCount: (prev.goingCount || 0) + 1 }) : prev);
+        toast.success('✅ आप इस कार्यक्रम में जा रहे हैं!');
+      }
+    } catch (err) {
+      toast.error(err?.message || 'कुछ गड़बड़ हुई, दोबारा कोशिश करें');
+    } finally {
+      setIsGoingLoading(false);
+    }
   };
 
   const handleShare = () => {
@@ -127,57 +148,7 @@ export default function EventDetailsPage() {
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[80px]">
       
-      {/* Registration Pass Modal */}
-      {isRegisterModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
-            <div 
-              className="p-4 text-white flex justify-between items-center"
-              style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor || primaryColor})` }}
-            >
-              <div>
-                <span className="text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">{event.eventType}</span>
-                <h3 className="font-extrabold text-base mt-1">Get Entry Pass</h3>
-              </div>
-              <button onClick={() => setIsRegisterModalOpen(false)} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white">
-                <HiXMark className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleRegisterSubmit} className="p-5 flex flex-col gap-3.5">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
-                <input required type="text" defaultValue="Rahul Sharma" className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs outline-none bg-gray-50 focus:bg-white" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Mobile Number</label>
-                <input required type="tel" defaultValue="9876543210" className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs outline-none bg-gray-50 focus:bg-white" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">No. of Attendees / Guest Pass</label>
-                <select className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs outline-none bg-gray-50">
-                  <option value="1">1 Person (Self)</option>
-                  <option value="2">2 Persons</option>
-                  <option value="5">Group / Family (5 Persons)</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2.5 mt-2">
-                <button type="button" onClick={() => setIsRegisterModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-xs text-gray-600 bg-gray-100 hover:bg-gray-200">
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-3 rounded-xl font-bold text-xs text-white shadow-lg active:scale-95 transition-all"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Confirm Pass
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Lightbox used for photos only */}
 
       {/* Lightbox Modal for Event Photos */}
       {selectedPhoto && (
@@ -196,12 +167,36 @@ export default function EventDetailsPage() {
         </div>
       )}
 
-      {/* Hero Banner Header */}
-      <div className="relative w-full aspect-[16/10] bg-gray-900 shrink-0 overflow-hidden">
-        <img src={event.image} alt={event.title} className="w-full h-full object-cover opacity-90" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/60"></div>
+      {/* Hero Banner Header — dynamic image with branding fallback */}
+      <div className="relative w-full aspect-[16/10] bg-slate-900 shrink-0 overflow-hidden flex items-center justify-center">
+        {event.image ? (
+          <img
+            src={event.image}
+            alt={event.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              if (logoUrl) {
+                e.target.src = logoUrl;
+                e.target.className = 'w-24 h-24 object-contain opacity-70';
+              } else {
+                e.target.style.display = 'none';
+              }
+            }}
+          />
+        ) : (
+          <div
+            className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}25, ${primaryColor}50)` }}
+          >
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-20 h-20 object-contain drop-shadow-md" />
+            ) : (
+              <HiCalendarDays className="w-16 h-16 text-white/80" />
+            )}
+          </div>
+        )}
 
-        {/* Top Floating Buttons */}
+        {/* Top Floating Buttons only */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
           <button 
             onClick={() => navigate(-1)} 
@@ -218,12 +213,16 @@ export default function EventDetailsPage() {
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Overlay Badges & Title */}
-        <div className="absolute bottom-3 left-4 right-4 text-white">
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+      {/* Scrollable Event Content */}
+      <div className="flex-1 overflow-y-auto w-full p-4 flex flex-col gap-4">
+
+        {/* Title & Badges Card — shown below banner */}
+        <div className="bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <span 
-              className="text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow"
+              className="text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
               style={{ backgroundColor: primaryColor }}
             >
               {event.eventType}
@@ -234,17 +233,13 @@ export default function EventDetailsPage() {
               </span>
             )}
             {rsvpStatus && (
-              <span className="bg-green-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow flex items-center gap-1">
+              <span className="bg-green-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <HiCheck className="w-3 h-3" /> {rsvpStatus}
               </span>
             )}
           </div>
-          <h1 className="text-lg font-black leading-tight text-white drop-shadow-md">{event.title}</h1>
+          <h1 className="text-base font-black text-gray-900 leading-snug">{event.title}</h1>
         </div>
-      </div>
-
-      {/* Scrollable Event Content */}
-      <div className="flex-1 overflow-y-auto w-full p-4 flex flex-col gap-4">
 
         {/* Date, Time & Venue Card */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
@@ -288,36 +283,7 @@ export default function EventDetailsPage() {
           </div>
         </div>
 
-        {/* RSVP Fast Action Bar */}
-        <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100">
-          <span className="text-[11px] font-bold text-gray-500 block mb-2 text-center">Will you participate in this event?</span>
-          <div className="grid grid-cols-3 gap-2">
-            <button 
-              onClick={handleInterested}
-              className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${rsvpStatus === 'Interested' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-            >
-              <HiStar className="w-4 h-4 text-amber-500" />
-              <span>Interested</span>
-            </button>
 
-            <button 
-              onClick={handleGoing}
-              className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${rsvpStatus === 'Going' ? 'bg-green-50 border-green-500 text-green-700 shadow-sm' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-            >
-              <HiHandThumbUp className="w-4 h-4 text-green-600" />
-              <span>Going</span>
-            </button>
-
-            <button 
-              onClick={() => setIsRegisterModalOpen(true)}
-              className="py-2.5 text-white rounded-xl text-xs font-extrabold shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <HiTicket className="w-4 h-4" />
-              <span>Get Pass</span>
-            </button>
-          </div>
-        </div>
 
         {/* Section Tabs */}
         <div className="flex bg-gray-100 p-1 rounded-xl shrink-0">
@@ -450,13 +416,27 @@ export default function EventDetailsPage() {
         </button>
         <button 
           onClick={handleGoing}
-          className={`flex-1 h-12 font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all ${
-            rsvpStatus === 'Going' ? 'bg-green-600 text-white' : 'text-white'
+          disabled={isGoingLoading}
+          className={`flex-1 h-12 font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all disabled:opacity-70 ${
+            rsvpStatus === 'Going' 
+              ? 'bg-red-500 hover:bg-red-600 text-white' 
+              : 'bg-green-600 hover:bg-green-700 text-white'
           }`}
-          style={{ backgroundColor: rsvpStatus === 'Going' ? '#16a34a' : primaryColor }}
+          style={{ backgroundColor: rsvpStatus === 'Going' ? '#dc2626' : '#16a34a' }}
         >
-          <HiHandThumbUp className="w-5 h-5" />
-          <span>{rsvpStatus === 'Going' ? 'Attending Event (Going)' : 'I Am Going (Confirm RSVP)'}</span>
+          {rsvpStatus === 'Going' ? (
+            <HiXMark className="w-5 h-5" />
+          ) : (
+            <HiHandThumbUp className="w-5 h-5" />
+          )}
+          <span>
+            {isGoingLoading
+              ? 'अपडेट हो रहा है...'
+              : rsvpStatus === 'Going'
+              ? 'Cancel Going'
+              : 'I Going'
+            }
+          </span>
         </button>
       </div>
 

@@ -5,16 +5,21 @@ import LoadingSpinner from './LoadingSpinner';
 import { storage } from '../services/storage';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 import UserAvatar from './UserAvatar';
+import CompleteProfileModal from './CompleteProfileModal';
 import { FaXTwitter, FaFacebookF, FaInstagram, FaYoutube } from 'react-icons/fa6';
+import { HiLanguage } from 'react-icons/hi2';
 import { getMediaUrl } from '../utils/mediaUrl';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { primaryColor, secondaryColor, leaderName, tagline, logoUrl } = useTenant();
+  const { language, openLanguageModal, t } = useLanguage();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activePoll, setActivePoll] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
   const [tenantConfig, setTenantConfig] = useState(null);
   const [banners, setBanners] = useState([]);
   const [latestUpdates, setLatestUpdates] = useState([]);
@@ -73,8 +78,39 @@ export default function HomePage() {
     if (user) setCurrentUser(user);
 
     const currentSlug = api.getTenantSlug();
+    const token = storage.getToken();
 
     const loadAllHomeData = async () => {
+      // Sync fresh user profile in background if logged in
+      if (token) {
+        api.getCitizenProfile().then((res) => {
+          if (res?.profile) {
+            const updated = {
+              ...(user || {}),
+              ...res.profile,
+              photo: res.profile.profilePhoto || res.profile.photo || user?.photo,
+              profilePhoto: res.profile.profilePhoto || res.profile.photo || user?.profilePhoto,
+            };
+            setCurrentUser(updated);
+            storage.setUser(updated);
+
+            // If profile is incomplete, check if dismissed recently, otherwise show popup
+            const hasSkippedPopup = sessionStorage.getItem('pwa_skipped_profile_popup');
+            if (updated.isProfileComplete === false && !hasSkippedPopup) {
+              setShowIncompleteProfileModal(true);
+            }
+          }
+        }).catch(() => null);
+      } else {
+        // Local check
+        if (user && user.isProfileComplete === false) {
+          const hasSkippedPopup = sessionStorage.getItem('pwa_skipped_profile_popup');
+          if (!hasSkippedPopup) {
+            setShowIncompleteProfileModal(true);
+          }
+        }
+      }
+
       // If no tenant slug is configured in .env, do not fetch tenant data from backend.
       if (!currentSlug) {
         setIsLoading(false);
@@ -166,6 +202,21 @@ export default function HomePage() {
     };
 
     loadAllHomeData();
+
+    const handleProfileUpdate = (e) => {
+      const updatedUser = e?.detail || storage.getUser();
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
+      }
+    };
+
+    window.addEventListener('pwa_profile_updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('pwa_profile_updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
+    };
   }, []);
 
   const appName = leaderName || tenantConfig?.branding?.leaderName || tenantConfig?.tenant?.name || 'जनसंपर्क';
@@ -257,14 +308,14 @@ export default function HomePage() {
 
   // Categories / Quick Actions Grid
   const categories = [
-    { name: 'Development', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', bgColor: 'bg-[#e8f5e9]', color: 'text-[#2e7d32]', path: '/works' },
-    { name: 'Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bgColor: 'bg-[#fff3e0]', color: 'text-[#ef6c00]', path: '/events' },
-    { name: 'Polls', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', bgColor: 'bg-[#e3f2fd]', color: 'text-[#1565c0]', path: '/polls' },
-    { name: 'Complaint', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bgColor: 'bg-[#fff3e0]', color: 'text-[#d84315]', path: '/my-complaints' },
-    { name: 'Membership', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', bgColor: 'bg-[#ffebee]', color: 'text-[#c62828]', path: '/membership' },
-    { name: 'Gallery', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', bgColor: 'bg-[#e8f5e9]', color: 'text-[#2e7d32]', path: '/photo-gallery' },
-    { name: 'About', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bgColor: 'bg-[#f3e5f5]', color: 'text-[#8e24aa]', path: '/about' },
-    { name: 'News', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z', bgColor: 'bg-[#e0f7fa]', color: 'text-[#00838f]', path: '/latest-updates' },
+    { name: t('development'), icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', bgColor: 'bg-[#e8f5e9]', color: 'text-[#2e7d32]', path: '/works' },
+    { name: t('events'), icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bgColor: 'bg-[#fff3e0]', color: 'text-[#ef6c00]', path: '/events' },
+    { name: t('polls'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', bgColor: 'bg-[#e3f2fd]', color: 'text-[#1565c0]', path: '/polls' },
+    { name: t('complaint'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bgColor: 'bg-[#fff3e0]', color: 'text-[#d84315]', path: '/my-complaints' },
+    { name: t('membership'), icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', bgColor: 'bg-[#ffebee]', color: 'text-[#c62828]', path: '/membership' },
+    { name: t('gallery'), icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', bgColor: 'bg-[#e8f5e9]', color: 'text-[#2e7d32]', path: '/photo-gallery' },
+    { name: t('about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bgColor: 'bg-[#f3e5f5]', color: 'text-[#8e24aa]', path: '/about' },
+    { name: t('news'), icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z', bgColor: 'bg-[#e0f7fa]', color: 'text-[#00838f]', path: '/latest-updates' },
   ];
 
   return (
@@ -286,10 +337,10 @@ export default function HomePage() {
             ) : null}
           </div>
           <div className="flex flex-col justify-center min-w-0">
-            <h1 className="text-base font-black text-gray-900 leading-tight tracking-tight truncate max-w-[175px] sm:max-w-xs">{appName}</h1>
+            <h1 className="text-base font-black text-gray-900 leading-tight tracking-tight truncate max-w-[150px] sm:max-w-xs">{appName}</h1>
             {appTagline && (
               <p
-                className="text-[0.62rem] font-bold tracking-wider mt-0.5 uppercase truncate max-w-[175px]"
+                className="text-[0.62rem] font-bold tracking-wider mt-0.5 uppercase truncate max-w-[150px]"
                 style={{ color: primaryColor }}
               >
                 {appTagline}
@@ -297,7 +348,22 @@ export default function HomePage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Selector Pill Button */}
+          <button
+            onClick={openLanguageModal}
+            className="flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-black transition-all active:scale-95 shadow-2xs"
+            style={{ 
+              borderColor: `${primaryColor}40`,
+              backgroundColor: `${primaryColor}0c`,
+              color: primaryColor
+            }}
+            title="Change Language / भाषा बदलें"
+          >
+            <HiLanguage className="w-3.5 h-3.5" />
+            <span>{language === 'hi' ? 'हिंदी' : 'ENG'}</span>
+          </button>
+
           <button
             onClick={() => navigate('/notifications')}
             className="relative text-gray-800 hover:opacity-80 active:scale-95 transition-all p-1"
@@ -332,7 +398,7 @@ export default function HomePage() {
             style={{ borderColor: `${primaryColor}40` }}
           >
             <UserAvatar
-              src={currentUser?.photo}
+              src={currentUser?.profilePhoto || currentUser?.photo}
               name={currentUser?.name}
               className="w-full h-full"
             />
@@ -468,13 +534,13 @@ export default function HomePage() {
             {/* Latest Updates / News Section */}
             <div className="px-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-extrabold text-[#1e293b]">Latest Updates</h2>
+                <h2 className="text-base font-extrabold text-[#1e293b]">{t('latestUpdates')}</h2>
                 <button
                   onClick={() => navigate('/latest-updates')}
                   className="text-xs font-bold transition-opacity hover:opacity-80"
                   style={{ color: secondaryColor }}
                 >
-                  View All →
+                  {t('viewAll')}
                 </button>
               </div>
               {latestUpdates.length > 0 ? (
@@ -494,7 +560,7 @@ export default function HomePage() {
                           className="text-[0.6rem] font-bold uppercase tracking-widest mb-0.5"
                           style={{ color: secondaryColor }}
                         >
-                          {item.category || 'News'}
+                          {item.category || t('news')}
                         </span>
                         <p className="text-xs font-extrabold text-gray-900 leading-snug line-clamp-2">{item.title}</p>
                         <span className="text-[0.65rem] font-semibold text-gray-400 mt-1">
@@ -506,7 +572,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  No new announcements yet. Check back soon!
+                  {t('noAnnouncementsInfo')}
                 </div>
               )}
             </div>
@@ -516,28 +582,50 @@ export default function HomePage() {
             {/* Upcoming Events Section */}
             <div className="px-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-extrabold text-[#1e293b]">Upcoming Events</h2>
+                <h2 className="text-base font-extrabold text-[#1e293b]">{t('upcomingEvents')}</h2>
                 <button
                   onClick={() => navigate('/events')}
                   className="text-xs font-bold transition-opacity hover:opacity-80"
                   style={{ color: secondaryColor }}
                 >
-                  View All →
+                  {t('viewAll')}
                 </button>
               </div>
               {upcomingEvents.length > 0 ? (
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                   {upcomingEvents.map(event => (
                     <div key={event._id || event.id} onClick={() => navigate(`/events/${event._id || event.id}`)} className="shrink-0 w-44 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform hover:border-orange-200">
-                      <div className="w-full h-28 relative overflow-hidden bg-gray-100">
-                        <img
-                          src={getMediaUrl(event.bannerUrl || event.img, '/event_jan_sabha.jpg')}
-                          alt={event.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                        <div className="absolute bottom-2 left-3 right-2">
+                      <div className="w-full h-28 relative overflow-hidden bg-slate-100 flex items-center justify-center">
+                        {(event.bannerUrl || (Array.isArray(event.images) && event.images.length > 0 ? event.images[0] : null) || event.image || event.img) ? (
+                          <img
+                            src={getMediaUrl(event.bannerUrl || (Array.isArray(event.images) && event.images.length > 0 ? event.images[0] : null) || event.image || event.img)}
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              if (currentLogo) {
+                                e.target.src = currentLogo;
+                                e.target.className = 'w-12 h-12 object-contain opacity-60';
+                              } else {
+                                e.target.style.display = 'none';
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full flex items-center justify-center p-3"
+                            style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${primaryColor}35)` }}
+                          >
+                            {currentLogo ? (
+                              <img src={currentLogo} alt="Logo" className="w-10 h-10 object-contain opacity-70" />
+                            ) : (
+                              <svg className="w-8 h-8 opacity-60" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none"></div>
+                        <div className="absolute bottom-2 left-3 right-2 pointer-events-none">
                           <p className="text-white text-xs font-extrabold leading-tight line-clamp-1">{event.title}</p>
                         </div>
                       </div>
@@ -561,7 +649,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  No scheduled events at this moment.
+                  {t('noEventsInfo')}
                 </div>
               )}
             </div>
@@ -571,13 +659,13 @@ export default function HomePage() {
             {/* Development Projects */}
             <div className="px-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-extrabold text-[#1e293b]">Development Works</h2>
+                <h2 className="text-base font-extrabold text-[#1e293b]">{t('developmentWorks')}</h2>
                 <button
                   onClick={() => navigate('/works')}
                   className="text-xs font-bold transition-opacity hover:opacity-80"
                   style={{ color: secondaryColor }}
                 >
-                  View All →
+                  {t('viewAll')}
                 </button>
               </div>
               {devProjects.length > 0 ? (
@@ -610,7 +698,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  Ongoing development work records will appear here.
+                  {t('ongoingWorksInfo')}
                 </div>
               )}
             </div>
@@ -621,36 +709,47 @@ export default function HomePage() {
             {activePoll && (
               <div className="px-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-extrabold text-[#1e293b]">Active Poll</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-extrabold text-[#1e293b]">{t('activePoll')}</h2>
+                    {activePoll.allowMultipleChoices && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                        {t('multiChoiceBadge')}
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => navigate('/polls')}
                     className="text-xs font-bold transition-opacity hover:opacity-80"
                     style={{ color: secondaryColor }}
                   >
-                    {activePoll.userVoted ? 'View Poll →' : 'Vote Now →'}
+                    {activePoll.userVoted || activePoll.hasVoted ? t('viewPoll') : t('voteNow')}
                   </button>
                 </div>
                 <div onClick={() => navigate('/polls')} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-pointer active:scale-[0.98] transition-transform">
                   <p className="text-sm font-extrabold text-gray-900 mb-4 leading-snug">{activePoll.question}</p>
-                  <div className="flex flex-col gap-2.5">
-                    {(activePoll.options || []).map((opt, i) => (
-                      <div key={i} className="flex flex-col gap-1">
-                        <div className="flex justify-between text-xs font-bold text-gray-700">
-                          <span>{opt.text}</span>
-                          <span style={{ color: primaryColor }}>{opt.votesCount || opt.percent || 0}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
-                              width: `${opt.percent || Math.min(opt.votesCount * 10, 100) || 10}%`
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  
+                    <div className="flex flex-col gap-2.5">
+                      {(activePoll.options || []).map((opt, i) => {
+                        const optPercent = opt.percentage !== undefined ? opt.percentage : (opt.percent || 0);
+                        return (
+                          <div key={i} className="flex flex-col gap-1">
+                            <div className="flex justify-between text-xs font-bold text-gray-700">
+                              <span className="truncate">{opt.text}</span>
+                              <span style={{ color: primaryColor }}>{optPercent}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
+                                  width: `${optPercent}%`
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                 </div>
               </div>
             )}
@@ -658,42 +757,40 @@ export default function HomePage() {
             <div className="h-2 bg-[#f8fafc] my-5"></div>
 
             {/* Photo Gallery Preview */}
-            <div className="px-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-extrabold text-[#1e293b]">Photo Gallery</h2>
-                <button
-                  onClick={() => navigate('/photo-gallery')}
-                  className="text-xs font-bold transition-opacity hover:opacity-80"
-                  style={{ color: secondaryColor }}
-                >
-                  View All →
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {(galleryPhotos.length > 0 ? galleryPhotos : [
-                  { url: '/event_jan_sabha.jpg', title: 'जनसंपर्क सभा' },
-                  { url: '/event_youth_meet.jpg', title: 'युवा सम्मेलन' }
-                ]).map((item, i) => (
-                  <div
-                    key={i}
+            {galleryPhotos.length > 0 && (
+              <div className="px-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-extrabold text-[#1e293b]">{t('photoGallery')}</h2>
+                  <button
                     onClick={() => navigate('/photo-gallery')}
-                    className={`rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-xs relative flex items-center justify-center ${i === 0 ? 'col-span-2 h-44' : 'h-32'}`}
+                    className="text-xs font-bold transition-opacity hover:opacity-80"
+                    style={{ color: secondaryColor }}
                   >
-                    <img
-                      src={getMediaUrl(item.imageUrl || item.url || item, '/event_youth_meet.jpg')}
-                      alt={item.title || "Gallery"}
-                      className="w-full h-full object-contain p-2"
-                      onError={(e) => { e.target.src = '/event_youth_meet.jpg'; }}
-                    />
-                    {item.title && (
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent p-2.5 pt-6 text-white">
-                        <p className="text-xs font-bold truncate drop-shadow">{item.title}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    {t('viewAll')}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {galleryPhotos.slice(0, 3).map((item, i) => (
+                    <div
+                      key={item._id || i}
+                      onClick={() => navigate('/photo-gallery')}
+                      className={`rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-xs relative flex items-center justify-center ${i === 0 ? 'col-span-2 h-44' : 'h-32'}`}
+                    >
+                      <img
+                        src={getMediaUrl(item.imageUrl || item.url || item)}
+                        alt={item.title || "Gallery"}
+                        className="w-full h-full object-contain p-2"
+                      />
+                      {item.title && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent p-2.5 pt-6 text-white">
+                          <p className="text-xs font-bold truncate drop-shadow">{item.title}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="h-2 bg-[#f8fafc] my-5"></div>
 
@@ -708,19 +805,29 @@ export default function HomePage() {
               >
                 <div className="flex items-center gap-3 mb-2">
                   <div
-                    className="w-12 h-12 rounded-full border-2 overflow-hidden shrink-0 shadow-sm bg-gray-100"
+                    className="w-12 h-12 rounded-full border-2 overflow-hidden shrink-0 shadow-sm bg-gray-100 flex items-center justify-center"
                     style={{ borderColor: primaryColor }}
                   >
-                    <img
-                      src={aboutLeader?.photoUrl || tenantConfig?.branding?.leaderPhotoUrl || '/profile_avatar.jpg'}
-                      alt="Leader"
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.src = '/profile_avatar.jpg'; }}
-                    />
+                    {(aboutLeader?.profileImageUrl || aboutLeader?.coverImageUrl || aboutLeader?.photoUrl || tenantConfig?.branding?.leaderPhotoUrl) ? (
+                      <img
+                        src={getMediaUrl(aboutLeader?.profileImageUrl || aboutLeader?.coverImageUrl || aboutLeader?.photoUrl || tenantConfig?.branding?.leaderPhotoUrl)}
+                        alt="Leader"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">
+                        <svg className="w-7 h-7 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                          <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-extrabold text-gray-900">{aboutLeader?.name || leaderName || 'माननीय जन प्रतिनिधि'}</h3>
+                      <h3 className="text-sm font-extrabold text-gray-900">{aboutLeader?.fullName || aboutLeader?.name || leaderName || 'माननीय जन प्रतिनिधि'}</h3>
                       <span
                         className="text-white text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ backgroundColor: secondaryColor }}
@@ -740,9 +847,9 @@ export default function HomePage() {
                     className="text-xs font-bold hover:underline flex items-center gap-1"
                     style={{ color: primaryColor }}
                   >
-                    Read Full Bio & Vision →
+                    {t('readFullBio')}
                   </button>
-                  <span className="text-[0.65rem] font-bold text-gray-400">Public Representative</span>
+                  <span className="text-[0.65rem] font-bold text-gray-400">{t('publicRepresentative')}</span>
                 </div>
               </div>
             </div>
@@ -751,7 +858,7 @@ export default function HomePage() {
 
             {/* Social Media & Contact Helpline Bar */}
             <div className="px-5">
-              <h2 className="text-base font-extrabold text-[#1e293b] mb-3">Connect & Helpline</h2>
+              <h2 className="text-base font-extrabold text-[#1e293b] mb-3">{t('connectHelpline')}</h2>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <a href="tel:1800123456" className="flex items-center gap-2.5 bg-green-50 border border-green-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
                   <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center shrink-0">
@@ -760,7 +867,7 @@ export default function HomePage() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[0.65rem] font-bold text-gray-500">Toll-Free Helpline</p>
+                    <p className="text-[0.65rem] font-bold text-gray-500">{t('tollFree')}</p>
                     <p className="text-xs font-extrabold text-gray-900">1800-123-456</p>
                   </div>
                 </a>
@@ -770,7 +877,7 @@ export default function HomePage() {
                     WA
                   </div>
                   <div>
-                    <p className="text-[0.65rem] font-bold text-gray-500">WhatsApp Helpdesk</p>
+                    <p className="text-[0.65rem] font-bold text-gray-500">{t('whatsappHelpdesk')}</p>
                     <p className="text-xs font-extrabold text-gray-900">+91 9876543210</p>
                   </div>
                 </a>
@@ -778,7 +885,7 @@ export default function HomePage() {
 
               {/* Social Channels Row */}
               <div className="flex items-center justify-between bg-[#f8fafc] border border-gray-200/80 rounded-xl p-3">
-                <span className="text-xs font-bold text-gray-700">Follow Leader:</span>
+                <span className="text-xs font-bold text-gray-700">{t('followLeader')}</span>
                 <div className="flex items-center gap-2">
                   {[
                     { name: 'X', color: 'bg-black text-white', icon: <FaXTwitter className="w-3.5 h-3.5" /> },
@@ -811,8 +918,8 @@ export default function HomePage() {
                   </svg>
                 </div>
                 <div className="flex flex-col flex-1">
-                  <h3 className="text-white font-extrabold text-base leading-tight">Jan Samasya Portal</h3>
-                  <p className="text-white/80 text-xs font-semibold mt-0.5">Submit complaint & track status</p>
+                  <h3 className="text-white font-extrabold text-base leading-tight">{t('janSamasyaPortal')}</h3>
+                  <p className="text-white/80 text-xs font-semibold mt-0.5">{t('submitComplaintDesc')}</p>
                 </div>
                 <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -884,6 +991,19 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Complete Incomplete Profile Modal Popup */}
+      <CompleteProfileModal
+        isOpen={showIncompleteProfileModal}
+        onClose={() => {
+          sessionStorage.setItem('pwa_skipped_profile_popup', '1');
+          setShowIncompleteProfileModal(false);
+        }}
+        onComplete={(updatedUser) => {
+          setCurrentUser(updatedUser);
+          setShowIncompleteProfileModal(false);
+        }}
+      />
 
       <BottomNav />
     </div>

@@ -167,9 +167,9 @@ export default function VolunteerPage() {
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor || primaryColor})` }}
             >
               <div className="flex items-center gap-3.5 relative z-10">
-                <div className="w-14 h-14 rounded-2xl border-2 border-white/80 p-0.5 overflow-hidden shrink-0 shadow-md bg-white">
+                <div className="w-14 h-14 rounded-2xl border-2 border-white/80 p-0.5 overflow-hidden shrink-0 shadow-md bg-white/10">
                   <UserAvatar 
-                    src={currentVolunteer?.photo} 
+                    src={currentVolunteer?.profilePhoto || currentVolunteer?.photo} 
                     name={currentVolunteer?.name} 
                     className="w-full h-full" 
                     iconClassName="w-7 h-7"

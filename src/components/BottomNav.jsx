@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
 import { HiHome, HiOutlineHome } from 'react-icons/hi2';
 import { HiUser, HiOutlineUser } from 'react-icons/hi2';
 import { HiBriefcase, HiOutlineBriefcase } from 'react-icons/hi2';
@@ -11,6 +12,7 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { primaryColor } = useTenant();
+  const { t } = useLanguage();
   const currentPath = location.pathname;
 
   // Bottom navbar sirf home page pe show hoga, baki sabhi pages me hide
@@ -21,35 +23,35 @@ export default function BottomNav() {
   const navItems = [
     {
       id: 'home',
-      label: 'Home',
+      label: t('home'),
       path: '/home',
       ActiveIcon: HiHome,
       InactiveIcon: HiOutlineHome
     },
     {
       id: 'about',
-      label: 'About',
+      label: t('about'),
       path: '/about',
       ActiveIcon: HiUser,
       InactiveIcon: HiOutlineUser
     },
     {
       id: 'works',
-      label: 'Works',
+      label: t('works'),
       path: '/works',
       ActiveIcon: HiBriefcase,
       InactiveIcon: HiOutlineBriefcase
     },
     {
       id: 'events',
-      label: 'Events',
+      label: t('events'),
       path: '/events',
       ActiveIcon: HiCalendarDays,
       InactiveIcon: HiOutlineCalendarDays
     },
     {
       id: 'menu',
-      label: 'Menu',
+      label: t('menu'),
       path: '/menu',
       ActiveIcon: HiSquares2X2,
       InactiveIcon: HiOutlineSquares2X2

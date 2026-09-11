@@ -10,38 +10,41 @@ import { getMediaUrl } from '../utils/mediaUrl';
 
 export default function VideoGalleryPage() {
   const navigate = useNavigate();
-  const { primaryColor, secondaryColor } = useTenant();
+  const { primaryColor } = useTenant();
   const [activeTab, setActiveTab] = useState('All');
   const [activeVideo, setActiveVideo] = useState(null);
   const [videos, setVideos] = useState([]);
+  const [categories, setCategories] = useState(['All']);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const tabs = ['All', 'Speeches', 'Development', 'Campaign', 'Interviews'];
 
   useEffect(() => {
     const fetchVideos = async () => {
       try {
         setIsLoading(true);
-        const params = { type: 'video' };
-        if (activeTab !== 'All') {
-          params.category = activeTab;
-        }
+        const params = { type: 'video', limit: 50 };
         const res = await api.getGallery(params).catch(() => []);
-        const list = Array.isArray(res) ? res : (res?.data || []);
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+
         if (list.length > 0) {
           const formatted = list.map((item, idx) => ({
             id: item._id || item.id || idx + 1,
             title: item.title || 'Constituency Video',
+            description: item.description || '',
             category: item.category || 'General',
             date: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
-            duration: item.duration || '05:30',
+            duration: item.duration || 'Video',
             views: item.views ? `${item.views} views` : 'Official',
-            thumbnail: getMediaUrl(item.thumbnailUrl || item.imageUrl || item.url, '/event_jan_sabha.jpg'),
-            videoUrl: getMediaUrl(item.url || item.videoUrl, 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')
+            thumbnail: getMediaUrl(item.thumbnailUrl || item.imageUrl || item.url, ''),
+            videoUrl: getMediaUrl(item.url || item.videoUrl, '')
           }));
           setVideos(formatted);
+
+          // Extract unique categories
+          const uniqueCats = ['All', ...new Set(formatted.map(v => v.category).filter(Boolean))];
+          setCategories(uniqueCats);
         } else {
           setVideos([]);
+          setCategories(['All']);
         }
       } catch (err) {
         console.warn('Video gallery fetch error:', err);
@@ -51,7 +54,7 @@ export default function VideoGalleryPage() {
     };
 
     fetchVideos();
-  }, [activeTab]);
+  }, []);
 
   const filteredVideos = activeTab === 'All' 
     ? videos 
@@ -91,18 +94,20 @@ export default function VideoGalleryPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white px-4 py-3 border-b border-gray-100 shrink-0 shadow-sm z-10 overflow-x-auto scrollbar-hide flex gap-2">
-        {tabs.map(tab => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === tab ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-            style={activeTab === tab ? { backgroundColor: primaryColor } : {}}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {categories.length > 1 && (
+        <div className="bg-white px-4 py-3 border-b border-gray-100 shrink-0 shadow-sm z-10 overflow-x-auto scrollbar-hide flex gap-2">
+          {categories.map(tab => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === tab ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              style={activeTab === tab ? { backgroundColor: primaryColor } : {}}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
@@ -110,61 +115,80 @@ export default function VideoGalleryPage() {
           <div className="py-12 flex items-center justify-center">
             <LoadingSpinner message="वीडियो गैलरी लोड हो रही है..." />
           </div>
+        ) : filteredVideos.length > 0 ? (
+          <div className="flex flex-col gap-5 pb-6">
+            {filteredVideos.map((video) => (
+              <div 
+                key={video.id} 
+                onClick={() => setActiveVideo(video)}
+                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group cursor-pointer active:scale-[0.99] transition-all hover:shadow-md"
+              >
+                <div className="w-full h-48 relative bg-gray-900 overflow-hidden flex items-center justify-center">
+                  {video.thumbnail ? (
+                    <img 
+                      src={video.thumbnail} 
+                      alt={video.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-linear-to-br from-gray-800 to-gray-950 flex items-center justify-center">
+                      <svg className="w-12 h-12 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  )}
+                  
+                  {/* Duration Tag */}
+                  <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-md text-[10px] font-bold">
+                    {video.duration}
+                  </div>
+
+                  {/* Category Tag */}
+                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider" style={{ color: primaryColor }}>
+                    {video.category}
+                  </div>
+
+                  {/* Play Button Overlay */}
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div 
+                      className="w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  <h3 className="text-sm font-extrabold text-gray-900 leading-snug mb-2 transition-colors">{video.title}</h3>
+                  {video.description && (
+                    <p className="text-xs text-gray-600 line-clamp-2 mb-2">{video.description}</p>
+                  )}
+                  <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <span>{video.date}</span>
+                      <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                      <span>{video.views}</span>
+                    </div>
+                    <button 
+                      onClick={(e) => handleShare(video, e)}
+                      className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-        <div className="flex flex-col gap-5 pb-6">
-          {filteredVideos.map((video) => (
-            <div 
-              key={video.id} 
-              onClick={() => setActiveVideo(video)}
-              className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group cursor-pointer active:scale-[0.99] transition-all hover:shadow-md"
-            >
-              <div className="w-full h-48 relative bg-gray-900 overflow-hidden">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" />
-                
-                {/* Duration Tag */}
-                <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-md text-[10px] font-bold">
-                  {video.duration}
-                </div>
-
-                {/* Category Tag */}
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider" style={{ color: primaryColor }}>
-                  {video.category}
-                </div>
-
-                {/* Play Button Overlay */}
-                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                  <div 
-                    className="w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4">
-                <h3 className="text-sm font-extrabold text-gray-900 leading-snug mb-2 transition-colors">{video.title}</h3>
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <span>{video.date}</span>
-                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                    <span>{video.views}</span>
-                  </div>
-                  <button 
-                    onClick={(e) => handleShare(video, e)}
-                    className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+          <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 mt-6">
+            <p className="text-gray-500 font-bold text-sm">अभी कोई वीडियो उपलब्ध नहीं है।</p>
+          </div>
         )}
       </div>
 

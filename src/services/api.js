@@ -1,20 +1,10 @@
 // Dynamically detect host
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl && !envUrl.includes('localhost')) {
+  if (envUrl) {
     return envUrl;
   }
-  if (typeof window !== 'undefined') {
-    // If hosted on live domains (e.g. vercel.app), prefer deployed live Render backend
-    if (window.location.hostname.includes('vercel.app') || (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1') && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname))) {
-      return 'https://electionapp-backend-jai8.onrender.com';
-    }
-    // If local IP on mobile Wi-Fi
-    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname)) {
-      return `http://${window.location.hostname}:3001`;
-    }
-  }
-  return envUrl || 'https://electionapp-backend-jai8.onrender.com';
+  return 'https://election.digicoders.in';
 };
 
 const BASE_URL = getBaseUrl();
@@ -87,6 +77,10 @@ class ApiClient {
       const resData = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid
+          this.setToken(null);
+        }
         const errorMsg = resData.message || (Array.isArray(resData.errors) ? resData.errors.join(', ') : 'Something went wrong');
         throw new Error(errorMsg);
       }
@@ -94,7 +88,10 @@ class ApiClient {
       // Backend returns { success: true, data: ... } via ResponseInterceptor
       return resData.data !== undefined ? resData.data : resData;
     } catch (error) {
-      console.error(`API Error [${endpoint}]:`, error);
+      // Only log if not a standard 401, network error, or handled fallback route
+      if (error?.message !== 'Unauthorized' && !endpoint.includes('my-going')) {
+        console.error(`API Error [${endpoint}]:`, error);
+      }
       throw error;
     }
   }
@@ -118,6 +115,22 @@ class ApiClient {
   getCitizenProfile() {
     return this.request('/citizen/profile', {
       method: 'GET',
+    });
+  }
+
+  updateCitizenProfile(profileData) {
+    return this.request('/citizen/profile', {
+      method: 'PATCH',
+      body: profileData,
+    });
+  }
+
+  uploadFile(file, module = 'citizens') {
+    const formData = new FormData();
+    formData.append('files', file);
+    return this.request(`/uploads/${module}`, {
+      method: 'POST',
+      body: formData,
     });
   }
 
@@ -169,17 +182,37 @@ class ApiClient {
   }
 
   // Polls APIs
-  getActivePolls(areaId) {
-    const endpoint = areaId ? `/polls?areaId=${areaId}` : '/polls';
+  getActivePolls(params = {}) {
+    let endpoint = '/polls';
+    const query = new URLSearchParams();
+    if (typeof params === 'string') {
+      query.append('areaId', params);
+    } else if (typeof params === 'object' && params !== null) {
+      if (params.areaId) query.append('areaId', params.areaId);
+      if (params.status) query.append('status', params.status);
+      if (params.category) query.append('category', params.category);
+    }
+    const qs = query.toString();
+    if (qs) endpoint += `?${qs}`;
     return this.request(endpoint, {
       method: 'GET',
     });
   }
 
-  votePoll(pollId, optionId) {
+  getSinglePoll(pollId) {
+    return this.request(`/polls/${pollId}`, {
+      method: 'GET',
+    });
+  }
+
+  votePoll(pollId, voteData) {
+    // Support either single optionId string or { optionId } / { optionIds }
+    const body = typeof voteData === 'object' && voteData !== null
+      ? voteData
+      : { optionId: voteData };
     return this.request(`/polls/${pollId}/vote`, {
       method: 'POST',
-      body: { optionId },
+      body,
     });
   }
 
@@ -309,10 +342,53 @@ class ApiClient {
     });
   }
 
+  async getMyGoingEvents() {
+    try {
+      const allRes = await this.getEvents({ limit: 100 }).catch(() => []);
+      const eventsList = Array.isArray(allRes) ? allRes : (allRes?.data || allRes?.items || []);
+      
+      const rsvpChecks = await Promise.allSettled(
+        eventsList.map(async (ev) => {
+          const evId = ev._id || ev.id;
+          if (!evId) return null;
+          const rsvp = await this.getEventRsvp(evId).catch(() => null);
+          if (rsvp && (rsvp.status === 'going' || rsvp === 'going' || rsvp?.isGoing || rsvp?.status === 'Going')) {
+            return ev;
+          }
+          return null;
+        })
+      );
+
+      return rsvpChecks
+        .filter((r) => r.status === 'fulfilled' && r.value !== null)
+        .map((r) => r.value);
+    } catch {
+      return [];
+    }
+  }
+
+  getEventRsvp(id) {
+    return this.request(`/events/${id}/my-rsvp`, {
+      method: 'GET',
+    });
+  }
+
+  getEventTicket(id) {
+    return this.request(`/events/${id}/ticket`, {
+      method: 'GET',
+    });
+  }
+
   rsvpEvent(id, status) {
     return this.request(`/events/${id}/rsvp`, {
       method: 'POST',
       body: { status },
+    });
+  }
+
+  removeRsvpEvent(id) {
+    return this.request(`/events/${id}/rsvp`, {
+      method: 'DELETE',
     });
   }
 

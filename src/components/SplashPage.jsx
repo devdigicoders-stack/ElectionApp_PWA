@@ -100,7 +100,7 @@ export default function SplashPage() {
         </button>
       </div>
 
-      {/* Media Background (from splashScreens or single splash media) */}
+      {/* Media / Splash Screen from Backend API */}
       {currentMediaUrl ? (
         <div className="absolute inset-0 w-full h-full z-0 flex items-center justify-center bg-black">
           {isVideo ? (
@@ -117,71 +117,35 @@ export default function SplashPage() {
             <img
               key={currentMediaUrl}
               src={currentMediaUrl}
-              alt="Splash"
+              alt="Splash Screen"
               className="w-full h-full object-cover"
               onError={(e) => {
                 e.target.style.display = 'none';
               }}
             />
           )}
-          {/* Dark Overlay for readability of title & subtitle */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/90 pointer-events-none" />
         </div>
-      ) : null}
+      ) : (
+        /* Dynamic Theme Background when no media uploaded yet */
+        <div 
+          className="absolute inset-0 w-full h-full z-0"
+          style={{
+            background: `linear-gradient(180deg, ${activePrimary} 0%, ${activeSecondary} 100%)`
+          }}
+        />
+      )}
 
-      {/* Main Content Area */}
-      <div className="w-full flex flex-col items-center pt-14 px-6 z-10 flex-grow justify-between">
-        {/* Top Logo & Leader Header */}
-        <div className="flex flex-col items-center">
-          {activeLogo && (
-            <div className="w-20 h-20 mb-3 flex items-center justify-center">
-              <img
-                src={activeLogo}
-                alt="App Logo"
-                className="w-full h-full object-contain rounded-full"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            </div>
-          )}
-          <h1 className="text-xl font-black text-white text-center drop-shadow-md tracking-wide">
-            {activeLeader}
-          </h1>
-          <p className="text-xs text-white/80 text-center font-medium mt-0.5 max-w-xs drop-shadow">
-            {activeTagline}
-          </p>
-        </div>
-
-        {/* Step Dynamic Content (Title & Subtitle from splashScreens) */}
-        {activeScreen ? (
-          <div className="w-full text-center px-4 mb-8 z-10 animate-fade-in">
-            <h2 className="text-2xl font-black text-white drop-shadow-lg mb-2 leading-tight">
-              {activeScreen.title}
-            </h2>
-            <p className="text-sm text-white/90 font-medium max-w-sm mx-auto leading-relaxed drop-shadow">
-              {activeScreen.subtitle}
-            </p>
-          </div>
-        ) : !currentMediaUrl ? (
-          /* Hindi Slogans when no image/video is available */
-          <div className="flex flex-col items-center space-y-1.5 text-white/95 font-bold text-lg tracking-wide drop-shadow-md my-auto">
-            <p>सबका साथ</p>
-            <p>सबका विकास</p>
-            <p>सबका विश्वास</p>
-            <p>सबका प्रयास</p>
-          </div>
-        ) : null}
-
+      {/* Spacer / Container for Dots */}
+      <div className="w-full flex flex-col items-center justify-end z-10 flex-grow pb-4 pointer-events-none">
         {/* Dots Pagination Indicator for Multi-step Splash */}
         {totalSteps > 1 && (
-          <div className="flex items-center gap-2 mb-4 z-20">
+          <div className="flex items-center gap-2 mb-2 z-20 pointer-events-auto">
             {splashScreens.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentStep(idx)}
                 className={`h-2 rounded-full transition-all ${
-                  currentStep === idx ? 'w-6 bg-white shadow-lg' : 'w-2 bg-white/40'
+                  currentStep === idx ? 'w-6 bg-white shadow-lg' : 'w-2 bg-white/50'
                 }`}
               ></button>
             ))}
@@ -190,7 +154,7 @@ export default function SplashPage() {
       </div>
 
       {/* Bottom Action Bar with Prev & Next (both compact) */}
-      <div className="w-full p-6 z-20 relative flex items-center justify-between gap-3 bg-gradient-to-t from-black/80 to-transparent">
+      <div className="w-full p-6 z-20 relative flex items-center justify-between gap-3 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
         <button
           onClick={handlePrevStep}
           className="px-6 py-3 rounded-xl font-bold text-sm text-white/90 bg-white/20 hover:bg-white/30 backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5"

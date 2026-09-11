@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { useTenant } from '../context/TenantContext';
@@ -7,6 +7,8 @@ import { HiArrowLeft } from 'react-icons/hi2';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = location.state?.from || '/home';
   const { primaryColor, secondaryColor, leaderName, tagline, logoUrl } = useTenant();
   const [mobileNumber, setMobileNumber] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
@@ -138,7 +140,7 @@ export default function LoginPage() {
         setIsVerified(true);
         triggerToast(`Welcome back, ${fullUser.name || 'Citizen'}!`);
         setTimeout(() => {
-          navigate('/home', { replace: true });
+          navigate(returnTo, { replace: true });
         }, 500);
       } else {
         // New user or incomplete profile -> navigate to registration page

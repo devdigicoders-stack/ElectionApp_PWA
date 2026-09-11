@@ -74,7 +74,7 @@ export const storage = {
     return updated;
   },
 
-  // Persistent Poll Votes map ({ [pollId]: optionId })
+  // Persistent Poll Votes map ({ [pollId]: { optionId, optionIds } | optionId })
   getVotedPolls: () => {
     try {
       const data = localStorage.getItem(KEYS.VOTED_POLLS);
@@ -84,9 +84,9 @@ export const storage = {
     }
   },
 
-  setVotedPoll: (pollId, optionId) => {
+  setVotedPoll: (pollId, voteData) => {
     const map = storage.getVotedPolls();
-    map[String(pollId)] = optionId;
+    map[String(pollId)] = voteData;
     localStorage.setItem(KEYS.VOTED_POLLS, JSON.stringify(map));
   },
 
@@ -104,28 +104,41 @@ export const storage = {
     localStorage.setItem(KEYS.POLLS, JSON.stringify(pollsList || []));
   },
 
-  votePoll: (pollId, optionId) => {
-    storage.setVotedPoll(pollId, optionId);
+  votePoll: (pollId, voteData) => {
+    const selectedIds = Array.isArray(voteData)
+      ? voteData
+      : (Array.isArray(voteData?.optionIds)
+          ? voteData.optionIds
+          : (voteData?.optionId ? [voteData.optionId] : [voteData]));
+    
+    storage.setVotedPoll(pollId, {
+      optionId: selectedIds[0] || null,
+      optionIds: selectedIds,
+    });
+
     const polls = storage.getPolls();
     const updated = polls.map((poll) => {
       const pId = poll._id || poll.id;
       if (String(pId) === String(pollId)) {
         const total = (poll.totalVotes || 0) + 1;
         const options = (poll.options || []).map((opt) => {
-          const optId = opt._id || opt.id || opt.optionId;
-          const isVoted = String(optId) === String(optionId);
+          const optId = String(opt._id || opt.id || opt.optionId);
+          const isVoted = selectedIds.includes(optId);
           const votes = isVoted ? (opt.votes || 0) + 1 : (opt.votes || 0);
           return {
             ...opt,
             votes,
+            percentage: total > 0 ? Math.round((votes / total) * 100) : 0,
             percent: total > 0 ? Math.round((votes / total) * 100) : 0
           };
         });
         return {
           ...poll,
           totalVotes: total,
-          userVoted: optionId,
+          userVoted: selectedIds[0] || null,
+          userVotedIds: selectedIds,
           isVoted: true,
+          hasVoted: true,
           options
         };
       }

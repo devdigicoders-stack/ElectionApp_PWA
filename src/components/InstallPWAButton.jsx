@@ -68,8 +68,8 @@ export default function InstallPWAButton() {
     setIsMinimized(true);
   };
 
-  // Only show install button on Home page
-  const isHomePage = location.pathname === '/' || location.pathname === '/home';
+  // Only show install banner on Home page (/home), hide on Splash (/) and other routes
+  const isHomePage = location.pathname === '/home';
   if (!isHomePage || isStandalone || !isVisible) return null;
 
   return (
