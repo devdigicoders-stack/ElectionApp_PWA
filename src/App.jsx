@@ -12,9 +12,19 @@ import PosterGeneratorPage from './components/PosterGeneratorPage';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { TenantProvider } from './context/TenantContext';
-// Page components (existing)
+import SplashPage from './components/SplashPage';
+import OnboardingPage from './components/OnboardingPage';
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
+
+// Route helper to show splash on first visit
+const InitialLaunch = () => {
+  const hasSeenSplash = localStorage.getItem('pwa_has_seen_splash');
+  if (!hasSeenSplash) {
+    return <SplashPage />;
+  }
+  return <Navigate to="/home" replace />;
+};
 import AboutPage from './components/AboutPage';
 import DevelopmentPage from './components/DevelopmentPage';
 import WorkDetailsPage from './components/WorkDetailsPage';
@@ -50,7 +60,9 @@ export default function App() {
           {/* Main content */}
           <div className="flex-1 overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Navigate to="/home" replace />} />
+              <Route path="/" element={<InitialLaunch />} />
+              <Route path="/splash" element={<SplashPage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/home" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/about" element={<AboutPage />} />

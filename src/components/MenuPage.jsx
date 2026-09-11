@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import { 
+  HiArrowLeft,
   HiUser, 
   HiBell, 
   HiChartBar, 
@@ -163,16 +164,25 @@ export default function MenuPage() {
       
       {/* Crisp White Header */}
       <div className="bg-white border-b border-gray-100 px-4 pt-3.5 pb-3 shadow-xs shrink-0 z-20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-black text-[#0f172a] leading-tight">All Features & Menu</h1>
-            <p className="text-[0.7rem] font-semibold text-gray-400">BJP Jansampark Portal</p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button 
+              onClick={() => navigate(-1)} 
+              className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
+              title="Back"
+            >
+              <HiArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-lg font-black text-[#0f172a] leading-tight truncate">All Features & Menu</h1>
+              <p className="text-[0.7rem] font-semibold text-gray-400 truncate">Jansampark Portal</p>
+            </div>
           </div>
           
           {/* Language Toggle Pill */}
           <button
             onClick={toggleLanguage}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[#f37920] text-xs font-black active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[#f37920] text-xs font-black active:scale-95 transition-all shrink-0"
           >
             <HiLanguage className="w-4 h-4" />
             <span>{language === 'hi' ? 'हिंदी' : 'English'}</span>

@@ -24,6 +24,35 @@ export default function HomePage() {
   const [aboutLeader, setAboutLeader] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedBannerModal, setSelectedBannerModal] = useState(null);
+
+  const handleShareBanner = async (e, slide) => {
+    e.stopPropagation();
+    const shareData = {
+      title: slide.title || 'Vidyak Banner',
+      text: slide.desc || slide.title || 'Check out this update',
+      url: slide.linkUrl || window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.warn('Share cancelled or failed', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(slide.img || window.location.href);
+        alert('Banner link/image URL copied to clipboard!');
+      } catch (err) {
+        alert('Sharing not supported on this browser');
+      }
+    }
+  };
+
+  const handleOpenBanner = (e, slide) => {
+    e.stopPropagation();
+    setSelectedBannerModal(slide);
+  };
 
   useEffect(() => {
     const fetchUnread = async () => {
@@ -69,10 +98,10 @@ export default function HomePage() {
         const bannersList = Array.isArray(bannersRes)
           ? bannersRes
           : (Array.isArray(bannersRes?.data)
-              ? bannersRes.data
-              : (Array.isArray(bannersRes?.items)
-                  ? bannersRes.items
-                  : (Array.isArray(bannersRes?.data?.items) ? bannersRes.data.items : [])));
+            ? bannersRes.data
+            : (Array.isArray(bannersRes?.items)
+              ? bannersRes.items
+              : (Array.isArray(bannersRes?.data?.items) ? bannersRes.data.items : [])));
         if (Array.isArray(bannersList) && bannersList.length > 0) {
           setBanners(bannersList);
         }
@@ -82,10 +111,10 @@ export default function HomePage() {
         const polls = Array.isArray(pollsRes)
           ? pollsRes
           : (Array.isArray(pollsRes?.items)
-              ? pollsRes.items
-              : (Array.isArray(pollsRes?.data?.items)
-                  ? pollsRes.data.items
-                  : (Array.isArray(pollsRes?.data) ? pollsRes.data : [])));
+            ? pollsRes.items
+            : (Array.isArray(pollsRes?.data?.items)
+              ? pollsRes.data.items
+              : (Array.isArray(pollsRes?.data) ? pollsRes.data : [])));
         if (Array.isArray(polls) && polls.length > 0) {
           setActivePoll(polls[0]);
         }
@@ -99,13 +128,13 @@ export default function HomePage() {
 
         // 5. Fetch Upcoming Events
         const eventsRes = await api.getEvents({ upcoming: 'true', limit: 4 }).catch(() => []);
-        const eventsList = Array.isArray(eventsRes?.items) 
-          ? eventsRes.items 
-          : (Array.isArray(eventsRes?.data?.items) 
-              ? eventsRes.data.items 
-              : (Array.isArray(eventsRes?.data) 
-                  ? eventsRes.data 
-                  : (Array.isArray(eventsRes) ? eventsRes : [])));
+        const eventsList = Array.isArray(eventsRes?.items)
+          ? eventsRes.items
+          : (Array.isArray(eventsRes?.data?.items)
+            ? eventsRes.data.items
+            : (Array.isArray(eventsRes?.data)
+              ? eventsRes.data
+              : (Array.isArray(eventsRes) ? eventsRes : [])));
         if (eventsList.length > 0) {
           setUpcomingEvents(eventsList);
         }
@@ -144,25 +173,25 @@ export default function HomePage() {
   const currentLogo = logoUrl || tenantConfig?.branding?.logoUrl || '/image copy 3.png';
 
   // Display slides from backend GET /banners API; if no promotional banners exist, show Party Logo card
-  const displaySlides = banners.length > 0 
+  const displaySlides = banners.length > 0
     ? banners.map((b) => ({
-        img: getMediaUrl(b.imageUrl || b.image || b.bannerUrl || b.url),
-        title: b.title || 'जनसंपर्क अभियान',
-        badge: b.badge || b.category || leaderName || 'Jan Sabha',
-        desc: b.description || b.desc || b.subtitle || '',
-        linkUrl: b.linkUrl || b.link || null,
-        isLogoFallback: false,
-      }))
+      img: getMediaUrl(b.imageUrl || b.image || b.bannerUrl || b.url),
+      title: b.title || 'जनसंपर्क अभियान',
+      badge: b.badge || b.category || leaderName || 'Jan Sabha',
+      desc: b.description || b.desc || b.subtitle || '',
+      linkUrl: b.linkUrl || b.link || null,
+      isLogoFallback: false,
+    }))
     : [
-        {
-          img: currentLogo,
-          title: tagline || tenantConfig?.branding?.tagline || 'सेवा, संकल्प और विकास',
-          badge: leaderName || 'Official Portal',
-          desc: tenantConfig?.tenant?.constituency ? `Constituency: ${tenantConfig.tenant.constituency}` : 'Direct Citizen Engagement & Public Welfare',
-          linkUrl: null,
-          isLogoFallback: true,
-        }
-      ];
+      {
+        img: currentLogo,
+        title: tagline || tenantConfig?.branding?.tagline || 'सेवा, संकल्प और विकास',
+        badge: leaderName || 'Official Portal',
+        desc: tenantConfig?.tenant?.constituency ? `Constituency: ${tenantConfig.tenant.constituency}` : 'Direct Citizen Engagement & Public Welfare',
+        linkUrl: null,
+        isLogoFallback: true,
+      }
+    ];
 
   const getRouteButtonLabel = (url) => {
     if (!url) return null;
@@ -243,21 +272,21 @@ export default function HomePage() {
       {/* Top App Bar with Dynamic White-Label Branding */}
       <div className="flex items-center justify-between px-4 py-2.5 shrink-0 bg-white z-20 shadow-xs relative border-b border-gray-100">
         <div className="flex items-center gap-3 min-w-0">
-          <div 
+          <div
             className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 bg-white shadow-xs flex items-center justify-center p-0.5"
             style={{ borderColor: `${primaryColor}30` }}
           >
-            <img 
-              src={currentLogo} 
-              alt="Logo" 
-              className="w-full h-full object-cover rounded-full" 
-              onError={(e) => { e.target.src = '/image copy 3.png'; }} 
+            <img
+              src={currentLogo}
+              alt="Logo"
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => { e.target.src = '/image copy 3.png'; }}
             />
           </div>
           <div className="flex flex-col justify-center min-w-0">
             <h1 className="text-base font-black text-gray-900 leading-tight tracking-tight truncate max-w-[175px] sm:max-w-xs">{appName}</h1>
             {appTagline && (
-              <p 
+              <p
                 className="text-[0.62rem] font-bold tracking-wider mt-0.5 uppercase truncate max-w-[175px]"
                 style={{ color: primaryColor }}
               >
@@ -267,7 +296,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => navigate('/notifications')}
             className="relative text-gray-800 hover:opacity-80 active:scale-95 transition-all p-1"
             style={{ color: primaryColor }}
@@ -277,7 +306,7 @@ export default function HomePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
             </svg>
             {unreadCount > 0 && (
-              <span 
+              <span
                 className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[0.58rem] font-black text-white flex items-center justify-center rounded-full ring-2 ring-white"
                 style={{ backgroundColor: primaryColor }}
               >
@@ -285,7 +314,7 @@ export default function HomePage() {
               </span>
             )}
           </button>
-          <button 
+          <button
             onClick={() => navigate('/search')}
             className="text-gray-800 hover:opacity-80 active:scale-95 transition-all p-1"
             style={{ color: primaryColor }}
@@ -300,10 +329,10 @@ export default function HomePage() {
             className="w-9 h-9 rounded-full overflow-hidden border shadow-xs flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all"
             style={{ borderColor: `${primaryColor}40` }}
           >
-            <UserAvatar 
-              src={currentUser?.photo} 
-              name={currentUser?.name} 
-              className="w-full h-full" 
+            <UserAvatar
+              src={currentUser?.photo}
+              name={currentUser?.name}
+              className="w-full h-full"
             />
           </div>
         </div>
@@ -314,489 +343,539 @@ export default function HomePage() {
           <LoadingSpinner message="मुख्य पृष्ठ लोड हो रहा है..." />
         </div>
       ) : (
-      <div className="flex-1 overflow-y-auto w-full relative">
-        {/* Slider Banner (Strictly from GET /banners API) */}
-        {displaySlides.length > 0 && (
-          <div 
-            className="relative w-full aspect-[16/8] sm:aspect-[16/7] bg-slate-900 shrink-0 overflow-hidden shadow-inner select-none cursor-grab active:cursor-grabbing"
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onMouseDown={onTouchStart}
-            onMouseMove={onTouchMove}
-            onMouseUp={onTouchEnd}
-          >
+        <div className="flex-1 overflow-y-auto w-full relative">
+          {/* Slider Banner (Strictly from GET /banners API) */}
+          {displaySlides.length > 0 && (
             <div
-              className="flex w-full h-full transition-transform duration-500 ease-in-out"
-              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+              className="relative w-full aspect-[16/8] sm:aspect-[16/7] bg-slate-900 shrink-0 overflow-hidden shadow-inner select-none cursor-grab active:cursor-grabbing"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              onMouseDown={onTouchStart}
+              onMouseMove={onTouchMove}
+              onMouseUp={onTouchEnd}
             >
-              {displaySlides.map((slide, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => handleBannerClick(slide)}
-                  className={`min-w-full h-full relative overflow-hidden flex flex-col justify-end p-4 ${slide.linkUrl ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
-                >
-                  {/* Banner Image or Party Logo Fallback */}
-                  {slide.isLogoFallback ? (
-                    <img 
-                      src={slide.img} 
-                      alt={slide.title} 
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none" 
-                      onError={(e) => { e.target.src = '/image copy 3.png'; }}
-                    />
-                  ) : (
-                    <img 
-                      src={slide.img} 
-                      alt={slide.title} 
-                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none" 
-                      onError={(e) => {
-                        // If banner image fails, hide broken img or fallback
-                        e.target.style.opacity = '0.3';
-                      }}
-                    />
-                  )}
-                  
-                  {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 pointer-events-none"></div>
-                  
-                  {/* Content Overlay */}
-                  <div className="relative z-20 text-white mb-2 max-w-[88%] flex flex-col items-start">
-                    <span 
-                      className="inline-block text-white text-[0.6rem] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mb-1 shadow-sm"
-                      style={{ backgroundColor: primaryColor }}
-                    >
-                      {slide.badge}
-                    </span>
-                    <h3 className="text-sm sm:text-base font-black leading-tight drop-shadow-md truncate w-full">
-                      {slide.title}
-                    </h3>
-                    {slide.desc && (
-                      <p className="text-[0.68rem] text-gray-200 font-medium line-clamp-1 opacity-90 mb-1.5">
-                        {slide.desc}
-                      </p>
-                    )}
-                    {slide.linkUrl && (() => {
-                      const btn = getRouteButtonLabel(slide.linkUrl);
-                      return (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleBannerClick(slide);
-                          }}
-                          className="mt-1.5 px-3 py-1 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-1.5 active:scale-95 transition-all hover:opacity-95"
-                          style={{ backgroundColor: primaryColor }}
-                        >
-                          <span>{btn.text}</span>
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d={btn.icon} />
-                          </svg>
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Slide Indicators */}
-            {displaySlides.length > 1 && (
-              <div className="absolute bottom-2.5 right-4 flex justify-end gap-1.5 z-30">
-                {displaySlides.map((_, idx) => (
-                  <button
+              <div
+                className="flex w-full h-full transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+              >
+                {displaySlides.map((slide, idx) => (
+                  <div
                     key={idx}
-                    onClick={() => setCurrentSlide(idx)}
-                    className={`h-1.5 rounded-full transition-all ${currentSlide === idx ? 'w-5 shadow' : 'bg-white/60 w-1.5'}`}
-                    style={{ backgroundColor: currentSlide === idx ? primaryColor : undefined }}
-                  ></button>
+                    onClick={() => handleBannerClick(slide)}
+                    className={`min-w-full h-full relative overflow-hidden flex flex-col justify-end p-4 ${slide.linkUrl ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
+                  >
+                    {/* Banner Image or Party Logo Fallback */}
+                    {slide.isLogoFallback ? (
+                      <div className="absolute inset-0 w-full h-full bg-white flex items-center justify-center p-2">
+                        <img
+                          src={slide.img}
+                          alt={slide.title}
+                          className="w-full h-full object-contain pointer-events-none"
+                          onError={(e) => { e.target.src = '/image copy 3.png'; }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 w-full h-full bg-white flex items-center justify-center">
+                        <img
+                          src={slide.img}
+                          alt={slide.title}
+                          className="w-full h-full object-cover object-top pointer-events-none"
+                          onError={(e) => {
+                            e.target.style.opacity = '0.3';
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Floating Action Buttons: Share & View Banner */}
+                    <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => handleShareBanner(e, slide)}
+                        title="Share Banner"
+                        className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenBanner(e, slide)}
+                        title="View Full Banner"
+                        className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Content Body */}
-        <div className="relative z-20 w-full bg-white flex flex-col pb-8">
-          
-          {/* Categories Grid */}
-          <div className="px-5 pt-6 pb-2">
-            <div className="grid grid-cols-4 gap-y-5 gap-x-2">
-              {categories.map((cat, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col items-center gap-2 cursor-pointer group"
-                  onClick={() => { if (cat.path) navigate(cat.path); }}
-                >
-                  <div className={`w-12 h-12 rounded-2xl ${cat.bgColor} flex items-center justify-center shadow-sm group-hover:shadow-md group-active:scale-95 transition-all`}>
-                    <svg className={`w-5 h-5 ${cat.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d={cat.icon} />
-                    </svg>
-                  </div>
-                  <span className="text-[0.6rem] font-bold text-gray-700 text-center leading-tight">{cat.name}</span>
+              {/* Slide Indicators */}
+              {displaySlides.length > 1 && (
+                <div className="absolute bottom-2.5 right-4 flex justify-end gap-1.5 z-30">
+                  {displaySlides.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`h-1.5 rounded-full transition-all ${currentSlide === idx ? 'w-5 shadow' : 'bg-white/60 w-1.5'}`}
+                      style={{ backgroundColor: currentSlide === idx ? primaryColor : undefined }}
+                    ></button>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Divider */}
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
+          {/* Content Body */}
+          <div className="relative z-20 w-full bg-white flex flex-col pb-8">
 
-          {/* Latest Updates / News Section */}
-          <div className="px-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-extrabold text-[#1e293b]">Latest Updates</h2>
-              <button 
-                onClick={() => navigate('/latest-updates')} 
-                className="text-xs font-bold transition-opacity hover:opacity-80"
-                style={{ color: secondaryColor }}
-              >
-                View All →
-              </button>
-            </div>
-            {latestUpdates.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {latestUpdates.map(item => (
-                  <div key={item._id || item.id} onClick={() => navigate('/latest-updates')} className="flex gap-3 items-center bg-[#f8fafc] rounded-2xl p-3 cursor-pointer active:scale-[0.98] transition-transform border border-gray-100">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100">
-                      <img 
-                        src={getMediaUrl(item.coverImage || item.imageUrl || item.img, '/event_jan_sabha.jpg')} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
-                      />
+            {/* Categories Grid */}
+            <div className="px-5 pt-6 pb-2">
+              <div className="grid grid-cols-4 gap-y-5 gap-x-2">
+                {categories.map((cat, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col items-center gap-2 cursor-pointer group"
+                    onClick={() => { if (cat.path) navigate(cat.path); }}
+                  >
+                    <div className={`w-12 h-12 rounded-2xl ${cat.bgColor} flex items-center justify-center shadow-sm group-hover:shadow-md group-active:scale-95 transition-all`}>
+                      <svg className={`w-5 h-5 ${cat.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={cat.icon} />
+                      </svg>
                     </div>
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span 
-                        className="text-[0.6rem] font-bold uppercase tracking-widest mb-0.5"
-                        style={{ color: secondaryColor }}
-                      >
-                        {item.category || 'News'}
-                      </span>
-                      <p className="text-xs font-extrabold text-gray-900 leading-snug line-clamp-2">{item.title}</p>
-                      <span className="text-[0.65rem] font-semibold text-gray-400 mt-1">
-                        {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (item.date || 'Recent')}
-                      </span>
-                    </div>
+                    <span className="text-[0.6rem] font-bold text-gray-700 text-center leading-tight">{cat.name}</span>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                No new announcements yet. Check back soon!
-              </div>
-            )}
-          </div>
-
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
-
-          {/* Upcoming Events Section */}
-          <div className="px-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-extrabold text-[#1e293b]">Upcoming Events</h2>
-              <button 
-                onClick={() => navigate('/events')} 
-                className="text-xs font-bold transition-opacity hover:opacity-80"
-                style={{ color: secondaryColor }}
-              >
-                View All →
-              </button>
             </div>
-            {upcomingEvents.length > 0 ? (
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {upcomingEvents.map(event => (
-                  <div key={event._id || event.id} onClick={() => navigate(`/events/${event._id || event.id}`)} className="shrink-0 w-44 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform hover:border-orange-200">
-                    <div className="w-full h-28 relative overflow-hidden bg-gray-100">
-                      <img 
-                        src={getMediaUrl(event.bannerUrl || event.img, '/event_jan_sabha.jpg')} 
-                        alt={event.title} 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                      <div className="absolute bottom-2 left-3 right-2">
-                        <p className="text-white text-xs font-extrabold leading-tight line-clamp-1">{event.title}</p>
-                      </div>
-                    </div>
-                    <div className="bg-white px-3 py-2.5 flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-gray-500 truncate">
-                        <svg className="w-3 h-3 shrink-0" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span className="truncate">{event.location || 'Local Constituency'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-gray-500">
-                        <svg className="w-3 h-3 shrink-0" style={{ color: secondaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>{event.startDate ? new Date(event.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Upcoming'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                No scheduled events at this moment.
-              </div>
-            )}
-          </div>
 
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
+            {/* Divider */}
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
 
-          {/* Development Projects */}
-          <div className="px-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-extrabold text-[#1e293b]">Development Works</h2>
-              <button 
-                onClick={() => navigate('/works')} 
-                className="text-xs font-bold transition-opacity hover:opacity-80"
-                style={{ color: secondaryColor }}
-              >
-                View All →
-              </button>
-            </div>
-            {devProjects.length > 0 ? (
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {devProjects.map(proj => (
-                  <div key={proj._id || proj.id} onClick={() => navigate(`/works/${proj._id || proj.id}`)} className="shrink-0 w-40 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform">
-                    <div className="w-full h-24 relative overflow-hidden bg-gray-100">
-                      <img 
-                        src={getMediaUrl(proj.coverImageUrl || proj.img, '/highway_project.jpg')} 
-                        alt={proj.title} 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => { e.target.src = '/highway_project.jpg'; }}
-                      />
-                      <div className="absolute inset-0 bg-black/25"></div>
-                    </div>
-                    <div className="bg-white px-3 py-2.5 flex flex-col gap-1">
-                      <p className="text-xs font-extrabold text-gray-900 leading-tight line-clamp-1">{proj.title}</p>
-                      <span 
-                        className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded-md self-start"
-                        style={{ 
-                          backgroundColor: `${secondaryColor}15`, 
-                          color: secondaryColor 
-                        }}
-                      >
-                        {proj.status || 'In Progress'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                Ongoing development work records will appear here.
-              </div>
-            )}
-          </div>
-
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
-
-          {/* Active Poll Preview */}
-          {activePoll && (
+            {/* Latest Updates / News Section */}
             <div className="px-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-extrabold text-[#1e293b]">Active Poll</h2>
-                <button 
-                  onClick={() => navigate('/polls')} 
+                <h2 className="text-base font-extrabold text-[#1e293b]">Latest Updates</h2>
+                <button
+                  onClick={() => navigate('/latest-updates')}
                   className="text-xs font-bold transition-opacity hover:opacity-80"
                   style={{ color: secondaryColor }}
                 >
-                  {activePoll.userVoted ? 'View Poll →' : 'Vote Now →'}
+                  View All →
                 </button>
               </div>
-              <div onClick={() => navigate('/polls')} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-pointer active:scale-[0.98] transition-transform">
-                <p className="text-sm font-extrabold text-gray-900 mb-4 leading-snug">{activePoll.question}</p>
-                <div className="flex flex-col gap-2.5">
-                  {(activePoll.options || []).map((opt, i) => (
-                    <div key={i} className="flex flex-col gap-1">
-                      <div className="flex justify-between text-xs font-bold text-gray-700">
-                        <span>{opt.text}</span>
-                        <span style={{ color: primaryColor }}>{opt.votesCount || opt.percent || 0}%</span>
+              {latestUpdates.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {latestUpdates.map(item => (
+                    <div key={item._id || item.id} onClick={() => navigate('/latest-updates')} className="flex gap-3 items-center bg-[#f8fafc] rounded-2xl p-3 cursor-pointer active:scale-[0.98] transition-transform border border-gray-100">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100">
+                        <img
+                          src={getMediaUrl(item.coverImage || item.imageUrl || item.img, '/event_jan_sabha.jpg')}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
+                        />
                       </div>
-                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ 
-                            background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
-                            width: `${opt.percent || Math.min(opt.votesCount * 10, 100) || 10}%` 
-                          }}
-                        ></div>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span
+                          className="text-[0.6rem] font-bold uppercase tracking-widest mb-0.5"
+                          style={{ color: secondaryColor }}
+                        >
+                          {item.category || 'News'}
+                        </span>
+                        <p className="text-xs font-extrabold text-gray-900 leading-snug line-clamp-2">{item.title}</p>
+                        <span className="text-[0.65rem] font-semibold text-gray-400 mt-1">
+                          {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (item.date || 'Recent')}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
-
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
-
-          {/* Photo Gallery Preview */}
-          <div className="px-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-extrabold text-[#1e293b]">Photo Gallery</h2>
-              <button 
-                onClick={() => navigate('/photo-gallery')} 
-                className="text-xs font-bold transition-opacity hover:opacity-80"
-                style={{ color: secondaryColor }}
-              >
-                View All →
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {(galleryPhotos.length > 0 ? galleryPhotos : [
-                { url: '/event_jan_sabha.jpg', title: 'जनसंपर्क सभा' },
-                { url: '/event_youth_meet.jpg', title: 'युवा सम्मेलन' }
-              ]).map((item, i) => (
-                <div
-                  key={i}
-                  onClick={() => navigate('/photo-gallery')}
-                  className={`rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-xs relative flex items-center justify-center ${i === 0 ? 'col-span-2 h-44' : 'h-32'}`}
-                >
-                  <img 
-                    src={getMediaUrl(item.imageUrl || item.url || item, '/event_youth_meet.jpg')} 
-                    alt={item.title || "Gallery"} 
-                    className="w-full h-full object-contain p-2" 
-                    onError={(e) => { e.target.src = '/event_youth_meet.jpg'; }}
-                  />
-                  {item.title && (
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent p-2.5 pt-6 text-white">
-                      <p className="text-xs font-bold truncate drop-shadow">{item.title}</p>
-                    </div>
-                  )}
+              ) : (
+                <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  No new announcements yet. Check back soon!
                 </div>
-              ))}
+              )}
             </div>
-          </div>
 
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
 
-          {/* Leader Message Card */}
-          <div className="px-5 mt-2">
-            <div 
-              className="border rounded-2xl p-4 relative overflow-hidden shadow-sm"
-              style={{ 
-                background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}15)`,
-                borderColor: `${primaryColor}30` 
-              }}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div 
-                  className="w-12 h-12 rounded-full border-2 overflow-hidden shrink-0 shadow-sm bg-gray-100"
-                  style={{ borderColor: primaryColor }}
+            {/* Upcoming Events Section */}
+            <div className="px-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-extrabold text-[#1e293b]">Upcoming Events</h2>
+                <button
+                  onClick={() => navigate('/events')}
+                  className="text-xs font-bold transition-opacity hover:opacity-80"
+                  style={{ color: secondaryColor }}
                 >
-                  <img 
-                    src={aboutLeader?.photoUrl || tenantConfig?.branding?.leaderPhotoUrl || '/profile_avatar.jpg'} 
-                    alt="Leader" 
-                    className="w-full h-full object-cover" 
-                    onError={(e) => { e.target.src = '/profile_avatar.jpg'; }}
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-sm font-extrabold text-gray-900">{aboutLeader?.name || leaderName || 'माननीय जन प्रतिनिधि'}</h3>
-                    <span 
-                      className="text-white text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full"
-                      style={{ backgroundColor: secondaryColor }}
-                    >
-                      {aboutLeader?.designation || 'Leader'}
-                    </span>
-                  </div>
-                  <p className="text-[0.7rem] text-gray-500 font-semibold">{aboutLeader?.constituency || 'Janseva Portal'}</p>
-                </div>
-              </div>
-              <p className="text-xs font-semibold text-gray-700 italic leading-relaxed">
-                "{aboutLeader?.vision || aboutLeader?.shortBio || tagline || 'जन सेवा ही हमारा संकल्प है। अपनी समस्याओं और सुझावों के लिए हमसे जुड़े रहें।'}"
-              </p>
-              <div className="mt-3 pt-2.5 border-t border-gray-200/60 flex items-center justify-between">
-                <button 
-                  onClick={() => navigate('/about')} 
-                  className="text-xs font-bold hover:underline flex items-center gap-1"
-                  style={{ color: primaryColor }}
-                >
-                  Read Full Bio & Vision →
+                  View All →
                 </button>
-                <span className="text-[0.65rem] font-bold text-gray-400">Public Representative</span>
               </div>
+              {upcomingEvents.length > 0 ? (
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {upcomingEvents.map(event => (
+                    <div key={event._id || event.id} onClick={() => navigate(`/events/${event._id || event.id}`)} className="shrink-0 w-44 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform hover:border-orange-200">
+                      <div className="w-full h-28 relative overflow-hidden bg-gray-100">
+                        <img
+                          src={getMediaUrl(event.bannerUrl || event.img, '/event_jan_sabha.jpg')}
+                          alt={event.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = '/event_jan_sabha.jpg'; }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                        <div className="absolute bottom-2 left-3 right-2">
+                          <p className="text-white text-xs font-extrabold leading-tight line-clamp-1">{event.title}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white px-3 py-2.5 flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-gray-500 truncate">
+                          <svg className="w-3 h-3 shrink-0" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="truncate">{event.location || 'Local Constituency'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-gray-500">
+                          <svg className="w-3 h-3 shrink-0" style={{ color: secondaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>{event.startDate ? new Date(event.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Upcoming'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  No scheduled events at this moment.
+                </div>
+              )}
             </div>
-          </div>
 
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
 
-          {/* Social Media & Contact Helpline Bar */}
-          <div className="px-5">
-            <h2 className="text-base font-extrabold text-[#1e293b] mb-3">Connect & Helpline</h2>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <a href="tel:1800123456" className="flex items-center gap-2.5 bg-green-50 border border-green-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
-                <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
+            {/* Development Projects */}
+            <div className="px-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-extrabold text-[#1e293b]">Development Works</h2>
+                <button
+                  onClick={() => navigate('/works')}
+                  className="text-xs font-bold transition-opacity hover:opacity-80"
+                  style={{ color: secondaryColor }}
+                >
+                  View All →
+                </button>
+              </div>
+              {devProjects.length > 0 ? (
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {devProjects.map(proj => (
+                    <div key={proj._id || proj.id} onClick={() => navigate(`/works/${proj._id || proj.id}`)} className="shrink-0 w-40 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform">
+                      <div className="w-full h-24 relative overflow-hidden bg-gray-100">
+                        <img
+                          src={getMediaUrl(proj.coverImageUrl || proj.img, '/highway_project.jpg')}
+                          alt={proj.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = '/highway_project.jpg'; }}
+                        />
+                        <div className="absolute inset-0 bg-black/25"></div>
+                      </div>
+                      <div className="bg-white px-3 py-2.5 flex flex-col gap-1">
+                        <p className="text-xs font-extrabold text-gray-900 leading-tight line-clamp-1">{proj.title}</p>
+                        <span
+                          className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded-md self-start"
+                          style={{
+                            backgroundColor: `${secondaryColor}15`,
+                            color: secondaryColor
+                          }}
+                        >
+                          {proj.status || 'In Progress'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-[0.65rem] font-bold text-gray-500">Toll-Free Helpline</p>
-                  <p className="text-xs font-extrabold text-gray-900">1800-123-456</p>
+              ) : (
+                <div className="py-6 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                  Ongoing development work records will appear here.
                 </div>
-              </a>
-
-              <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
-                <div className="w-8 h-8 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0 font-black text-xs">
-                  WA
-                </div>
-                <div>
-                  <p className="text-[0.65rem] font-bold text-gray-500">WhatsApp Helpdesk</p>
-                  <p className="text-xs font-extrabold text-gray-900">+91 9876543210</p>
-                </div>
-              </a>
+              )}
             </div>
 
-            {/* Social Channels Row */}
-            <div className="flex items-center justify-between bg-[#f8fafc] border border-gray-200/80 rounded-xl p-3">
-              <span className="text-xs font-bold text-gray-700">Follow Leader:</span>
-              <div className="flex items-center gap-2">
-                {[
-                  { name: 'X', color: 'bg-black text-white', icon: <FaXTwitter className="w-3.5 h-3.5" /> },
-                  { name: 'FB', color: 'bg-[#1877F2] text-white', icon: <FaFacebookF className="w-3.5 h-3.5" /> },
-                  { name: 'IG', color: 'bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 text-white', icon: <FaInstagram className="w-3.5 h-3.5" /> },
-                  { name: 'YT', color: 'bg-[#FF0000] text-white', icon: <FaYoutube className="w-3.5 h-3.5" /> }
-                ].map((s, i) => (
-                  <button key={i} className={`w-7 h-7 rounded-lg ${s.color} flex items-center justify-center shadow-sm active:scale-90 transition-transform`}>
-                    {s.icon}
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
+
+            {/* Active Poll Preview */}
+            {activePoll && (
+              <div className="px-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-extrabold text-[#1e293b]">Active Poll</h2>
+                  <button
+                    onClick={() => navigate('/polls')}
+                    className="text-xs font-bold transition-opacity hover:opacity-80"
+                    style={{ color: secondaryColor }}
+                  >
+                    {activePoll.userVoted ? 'View Poll →' : 'Vote Now →'}
                   </button>
+                </div>
+                <div onClick={() => navigate('/polls')} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-pointer active:scale-[0.98] transition-transform">
+                  <p className="text-sm font-extrabold text-gray-900 mb-4 leading-snug">{activePoll.question}</p>
+                  <div className="flex flex-col gap-2.5">
+                    {(activePoll.options || []).map((opt, i) => (
+                      <div key={i} className="flex flex-col gap-1">
+                        <div className="flex justify-between text-xs font-bold text-gray-700">
+                          <span>{opt.text}</span>
+                          <span style={{ color: primaryColor }}>{opt.votesCount || opt.percent || 0}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
+                              width: `${opt.percent || Math.min(opt.votesCount * 10, 100) || 10}%`
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
+
+            {/* Photo Gallery Preview */}
+            <div className="px-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-extrabold text-[#1e293b]">Photo Gallery</h2>
+                <button
+                  onClick={() => navigate('/photo-gallery')}
+                  className="text-xs font-bold transition-opacity hover:opacity-80"
+                  style={{ color: secondaryColor }}
+                >
+                  View All →
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {(galleryPhotos.length > 0 ? galleryPhotos : [
+                  { url: '/event_jan_sabha.jpg', title: 'जनसंपर्क सभा' },
+                  { url: '/event_youth_meet.jpg', title: 'युवा सम्मेलन' }
+                ]).map((item, i) => (
+                  <div
+                    key={i}
+                    onClick={() => navigate('/photo-gallery')}
+                    className={`rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-xs relative flex items-center justify-center ${i === 0 ? 'col-span-2 h-44' : 'h-32'}`}
+                  >
+                    <img
+                      src={getMediaUrl(item.imageUrl || item.url || item, '/event_youth_meet.jpg')}
+                      alt={item.title || "Gallery"}
+                      className="w-full h-full object-contain p-2"
+                      onError={(e) => { e.target.src = '/event_youth_meet.jpg'; }}
+                    />
+                    {item.title && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent p-2.5 pt-6 text-white">
+                        <p className="text-xs font-bold truncate drop-shadow">{item.title}</p>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          <div className="h-2 bg-[#f8fafc] my-5"></div>
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
 
-          {/* Jan Samasya CTA */}
-          <div className="px-5">
-            <div
-              onClick={() => navigate('/complaint')}
-              className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform shadow-lg"
-              style={{ 
-                background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor || primaryColor})` 
-              }}
-            >
-              <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            {/* Leader Message Card */}
+            <div className="px-5 mt-2">
+              <div
+                className="border rounded-2xl p-4 relative overflow-hidden shadow-sm"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}15)`,
+                  borderColor: `${primaryColor}30`
+                }}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div
+                    className="w-12 h-12 rounded-full border-2 overflow-hidden shrink-0 shadow-sm bg-gray-100"
+                    style={{ borderColor: primaryColor }}
+                  >
+                    <img
+                      src={aboutLeader?.photoUrl || tenantConfig?.branding?.leaderPhotoUrl || '/profile_avatar.jpg'}
+                      alt="Leader"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.src = '/profile_avatar.jpg'; }}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-extrabold text-gray-900">{aboutLeader?.name || leaderName || 'माननीय जन प्रतिनिधि'}</h3>
+                      <span
+                        className="text-white text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ backgroundColor: secondaryColor }}
+                      >
+                        {aboutLeader?.designation || 'Leader'}
+                      </span>
+                    </div>
+                    <p className="text-[0.7rem] text-gray-500 font-semibold">{aboutLeader?.constituency || 'Janseva Portal'}</p>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold text-gray-700 italic leading-relaxed">
+                  "{aboutLeader?.vision || aboutLeader?.shortBio || tagline || 'जन सेवा ही हमारा संकल्प है। अपनी समस्याओं और सुझावों के लिए हमसे जुड़े रहें।'}"
+                </p>
+                <div className="mt-3 pt-2.5 border-t border-gray-200/60 flex items-center justify-between">
+                  <button
+                    onClick={() => navigate('/about')}
+                    className="text-xs font-bold hover:underline flex items-center gap-1"
+                    style={{ color: primaryColor }}
+                  >
+                    Read Full Bio & Vision →
+                  </button>
+                  <span className="text-[0.65rem] font-bold text-gray-400">Public Representative</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
+
+            {/* Social Media & Contact Helpline Bar */}
+            <div className="px-5">
+              <h2 className="text-base font-extrabold text-[#1e293b] mb-3">Connect & Helpline</h2>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <a href="tel:1800123456" className="flex items-center gap-2.5 bg-green-50 border border-green-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
+                  <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[0.65rem] font-bold text-gray-500">Toll-Free Helpline</p>
+                    <p className="text-xs font-extrabold text-gray-900">1800-123-456</p>
+                  </div>
+                </a>
+
+                <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
+                  <div className="w-8 h-8 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0 font-black text-xs">
+                    WA
+                  </div>
+                  <div>
+                    <p className="text-[0.65rem] font-bold text-gray-500">WhatsApp Helpdesk</p>
+                    <p className="text-xs font-extrabold text-gray-900">+91 9876543210</p>
+                  </div>
+                </a>
+              </div>
+
+              {/* Social Channels Row */}
+              <div className="flex items-center justify-between bg-[#f8fafc] border border-gray-200/80 rounded-xl p-3">
+                <span className="text-xs font-bold text-gray-700">Follow Leader:</span>
+                <div className="flex items-center gap-2">
+                  {[
+                    { name: 'X', color: 'bg-black text-white', icon: <FaXTwitter className="w-3.5 h-3.5" /> },
+                    { name: 'FB', color: 'bg-[#1877F2] text-white', icon: <FaFacebookF className="w-3.5 h-3.5" /> },
+                    { name: 'IG', color: 'bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 text-white', icon: <FaInstagram className="w-3.5 h-3.5" /> },
+                    { name: 'YT', color: 'bg-[#FF0000] text-white', icon: <FaYoutube className="w-3.5 h-3.5" /> }
+                  ].map((s, i) => (
+                    <button key={i} className={`w-7 h-7 rounded-lg ${s.color} flex items-center justify-center shadow-sm active:scale-90 transition-transform`}>
+                      {s.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="h-2 bg-[#f8fafc] my-5"></div>
+
+            {/* Jan Samasya CTA */}
+            <div className="px-5">
+              <div
+                onClick={() => navigate('/complaint')}
+                className="rounded-2xl p-5 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform shadow-lg"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor || primaryColor})`
+                }}
+              >
+                <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="flex flex-col flex-1">
+                  <h3 className="text-white font-extrabold text-base leading-tight">Jan Samasya Portal</h3>
+                  <p className="text-white/80 text-xs font-semibold mt-0.5">Submit complaint & track status</p>
+                </div>
+                <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-              <div className="flex flex-col flex-1">
-                <h3 className="text-white font-extrabold text-base leading-tight">Jan Samasya Portal</h3>
-                <p className="text-white/80 text-xs font-semibold mt-0.5">Submit complaint & track status</p>
-              </div>
-              <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Banner Preview & Share Modal */}
+      {selectedBannerModal && (
+        <div 
+          className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-md flex flex-col justify-between p-4 pb-12 animate-fade-in"
+          onClick={() => setSelectedBannerModal(null)}
+        >
+          {/* Modal Header */}
+          <div className="flex items-center justify-between z-10 pt-2 px-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col text-white">
+              <h3 className="font-bold text-base line-clamp-1">{selectedBannerModal.title}</h3>
+              {selectedBannerModal.badge && (
+                <span className="text-xs text-white/70">{selectedBannerModal.badge}</span>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedBannerModal(null)}
+              className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
+          {/* Modal Center Content (Full Image View) */}
+          <div className="flex-1 flex items-center justify-center p-2 my-auto" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={selectedBannerModal.img}
+              alt={selectedBannerModal.title}
+              className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl"
+            />
+          </div>
+
+          {/* Modal Footer Actions */}
+          <div className="flex items-center gap-3 pb-4 px-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={(e) => handleShareBanner(e, selectedBannerModal)}
+              className="flex-1 py-3 px-4 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share Banner
+            </button>
+            {selectedBannerModal.linkUrl && (
+              <button
+                onClick={() => {
+                  const url = selectedBannerModal.linkUrl;
+                  setSelectedBannerModal(null);
+                  handleBannerClick({ linkUrl: url });
+                }}
+                className="py-3 px-5 rounded-xl bg-white/20 text-white font-bold hover:bg-white/30 active:scale-95 transition-all"
+              >
+                Open Link
+              </button>
+            )}
+          </div>
         </div>
-      </div>
       )}
 
       <BottomNav />

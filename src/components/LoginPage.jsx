@@ -188,6 +188,24 @@ export default function LoginPage() {
         </div>
       )}
 
+      {/* Top Floating Back Button */}
+      <div className="absolute top-4 left-4 z-20">
+        <button
+          onClick={() => {
+            if (isOtpSent) {
+              setIsOtpSent(false);
+              setOtp(['', '', '', '', '', '']);
+            } else {
+              navigate('/home');
+            }
+          }}
+          className="w-10 h-10 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs"
+          title="Back"
+        >
+          <HiArrowLeft className="w-5 h-5" />
+        </button>
+      </div>
+
       <div className="flex-1 flex flex-col px-6 pt-16 pb-6 overflow-y-auto">
         
         {/* Logo Area */}
