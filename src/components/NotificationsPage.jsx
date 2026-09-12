@@ -39,6 +39,7 @@ export default function NotificationsPage() {
   const handleEnablePush = async () => {
     setIsEnablingPush(true);
     try {
+      localStorage.removeItem('vidyak_fcm_token');
       const res = await requestFcmToken({ showToasts: true });
       if (res.success) {
         setPushPermission('granted');
@@ -51,41 +52,36 @@ export default function NotificationsPage() {
   };
 
   const handleSendTestPush = async () => {
-    const token = getStoredFcmToken();
     setIsSendingTest(true);
 
-    // 1. Immediately trigger native browser notification popup
-    if (Notification.permission === 'granted') {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification('🔔 Vidyak Push Notification', {
-            body: 'Firebase Cloud Messaging (FCM) live test notification!',
-            icon: '/logo.png',
-            badge: '/logo.png',
-            vibrate: [200, 100, 200],
-            data: { url: '/notifications' },
-          });
-        }).catch(() => {
-          new Notification('🔔 Vidyak Push Notification', {
-            body: 'Firebase Cloud Messaging (FCM) live test notification!',
-            icon: '/logo.png',
-          });
-        });
-      } else {
-        new Notification('🔔 Vidyak Push Notification', {
-          body: 'Firebase Cloud Messaging (FCM) live test notification!',
-          icon: '/logo.png',
-        });
-      }
-    }
-
-    // 2. Also dispatch backend FCM push via Firebase Admin
     try {
-      const res = await api.testFcmPush(token || undefined);
+      let token = getStoredFcmToken();
+      if (!token) {
+        const fresh = await requestFcmToken({ showToasts: false });
+        token = fresh?.token;
+      }
+
+      let res = await api.testFcmPush(token || undefined);
+
+      // If token was stale / unregistered from previous Firebase config, auto regenerate fresh token and retry once
+      const isUnregistered = 
+        res?.error?.toLowerCase()?.includes('unregistered') || 
+        res?.message?.toLowerCase()?.includes('unregistered') ||
+        res?.error?.toLowerCase()?.includes('not found') ||
+        res?.error?.toLowerCase()?.includes('not-registered');
+
+      if (isUnregistered) {
+        localStorage.removeItem('vidyak_fcm_token');
+        const fresh = await requestFcmToken({ showToasts: false });
+        if (fresh?.token) {
+          res = await api.testFcmPush(fresh.token);
+        }
+      }
+
       if (res?.success) {
-        toast.success('Test push sent via FCM Server! Check notification tray.');
+        toast.success('Test push notification delivered via FCM!');
       } else {
-        toast.info(res?.message || res?.error || 'Test push triggered.');
+        toast.info(res?.message || res?.error || 'Test push sent.');
       }
     } catch (err) {
       toast.error(err.message || 'Could not send test push.');
