@@ -379,7 +379,7 @@ export default function PollsPage() {
                     key={pId} 
                     className="bg-white rounded-3xl p-5 shadow-xs border border-gray-100 relative overflow-hidden"
                   >
-                    {/* Top Badges: Sr. No. Unique Index + Area */}
+                    {/* Top Badges: Unique Sr. No. (Q1, Q2...) + Area */}
                     <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span 
@@ -416,9 +416,6 @@ export default function PollsPage() {
                         const optId = String(opt.optionId || opt._id || opt.id);
                         const isChosenByMe = userVotedIds.includes(optId);
                         const isCurrentlySelected = currentSelected.includes(optId);
-                        const percentage = opt.percentage !== undefined
-                          ? opt.percentage
-                          : (totalVotes > 0 ? Math.round(((opt.votes || 0) / totalVotes) * 100) : 0);
 
                         return (
                           <div 
@@ -439,17 +436,6 @@ export default function PollsPage() {
                                 : {}
                             }
                           >
-                            {/* Percentage Bar (Always shown when citizen votes) */}
-                            {hasVoted && (
-                              <div 
-                                className="absolute top-0 left-0 bottom-0 transition-all duration-700 rounded-2xl" 
-                                style={{ 
-                                  width: `${percentage}%`,
-                                  backgroundColor: isChosenByMe ? `${primaryColor}20` : '#e2e8f0',
-                                }}
-                              ></div>
-                            )}
-
                             <div className="relative z-10 flex justify-between items-center gap-3">
                               <div className="flex items-center gap-3 min-w-0 flex-1">
                                 {!hasVoted ? (
@@ -493,16 +479,6 @@ export default function PollsPage() {
                                   {opt.text}
                                 </span>
                               </div>
-
-                              {/* Percentage Label */}
-                              {hasVoted && (
-                                <span 
-                                  className="font-black text-xs shrink-0 ml-2"
-                                  style={{ color: isChosenByMe ? primaryColor : '#64748b' }}
-                                >
-                                  {percentage}%
-                                </span>
-                              )}
                             </div>
                           </div>
                         );
@@ -542,9 +518,7 @@ export default function PollsPage() {
                       <span className="flex items-center gap-1.5">
                         <HiUsers className="w-4 h-4 text-gray-400" />
                         <span>
-                          {hasVoted 
-                            ? `${totalVotes.toLocaleString()} ${t('totalVotes')}` 
-                            : t('publicParticipation')}
+                          {`${totalVotes.toLocaleString()} ${t('totalVotes')}`}
                         </span>
                       </span>
 
@@ -575,20 +549,27 @@ export default function PollsPage() {
           /* Past Polls Tab */
           <div className="flex flex-col gap-4 pb-6">
             {pastPolls.length > 0 ? (
-              pastPolls.map((poll) => {
+              pastPolls.map((poll, pollIdx) => {
                 const pId = String(poll._id || poll.id);
                 const pollTotal = poll.totalVotes || 0;
-                const isDeclared = poll.isResultDeclared || poll.resultStatus === 'DECLARED' || poll.resultVisibility === 'ALWAYS_PUBLIC';
 
                 return (
                   <div key={pId} className="bg-white rounded-3xl p-5 shadow-xs border border-gray-100">
                     <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
-                        <HiMapPin className="w-3 h-3 text-gray-500" />
-                        <span>{poll.area || poll.targetArea?.name || 'All Constituency'}</span>
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span 
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold text-white"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          Q{pollIdx + 1}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
+                          <HiMapPin className="w-3 h-3 text-gray-500" />
+                          <span>{poll.area || poll.targetArea?.name || 'All Constituency'}</span>
+                        </span>
+                      </div>
                       <span className="text-[11px] font-bold text-gray-400">
-                        {poll.endsAt ? `Closed on ${new Date(poll.endsAt).toLocaleDateString()}` : t('votingClosed')}
+                        {t('votingClosed')}
                       </span>
                     </div>
 
@@ -596,53 +577,32 @@ export default function PollsPage() {
                       {poll.question}
                     </h3>
 
-                    {!isDeclared && poll.resultDeclaredAt && new Date(poll.resultDeclaredAt) > now ? (
-                      <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2.5">
-                        <HiClock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="text-xs">
-                          <p className="font-extrabold">{t('confidentialResults')}</p>
-                          <p className="text-[11px] text-amber-800 mt-0.5">
-                            {poll.resultMessage || `Results will be announced on ${formatScheduledDate(poll.resultDeclaredAt)}.`}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {poll.options.map(opt => {
-                          const optId = opt.optionId || opt._id || opt.id;
-                          const optPercent = opt.percentage !== undefined 
-                            ? opt.percentage 
-                            : (pollTotal > 0 ? Math.round(((opt.votes || 0) / pollTotal) * 100) : 0);
-                          
-                          const isWinner = poll.winnerOption?.optionId === optId && pollTotal > 0;
+                    <div className="flex flex-col gap-2">
+                      {poll.options.map(opt => {
+                        const optId = opt.optionId || opt._id || opt.id;
+                        const isWinner = poll.winnerOption?.optionId === optId && pollTotal > 0;
 
-                          return (
-                            <div 
-                              key={optId} 
-                              className={`relative rounded-2xl p-3 border overflow-hidden ${
-                                isWinner ? 'bg-amber-50/40 border-amber-200' : 'bg-gray-50 border-gray-100'
-                              }`}
-                            >
-                              <div 
-                                className="absolute top-0 left-0 bottom-0 opacity-20 rounded-2xl" 
-                                style={{ width: `${optPercent}%`, backgroundColor: isWinner ? '#f59e0b' : primaryColor }}
-                              ></div>
-                              <div className="relative z-10 flex justify-between items-center gap-2">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  {isWinner && (
-                                    <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shrink-0">
-                                      {t('winner')}
-                                    </span>
-                                  )}
-                                  <span className="text-xs font-bold text-gray-800 truncate">{opt.text}</span>
-                                </div>
-                                <span className="text-xs font-black text-gray-900 shrink-0">{optPercent}%</span>
+                        return (
+                          <div 
+                            key={optId} 
+                            className={`relative rounded-2xl p-3 border overflow-hidden ${
+                              isWinner ? 'bg-amber-50/40 border-amber-200' : 'bg-gray-50 border-gray-100'
+                            }`}
+                          >
+                            <div className="relative z-10 flex justify-between items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                {isWinner && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shrink-0">
+                                    {t('winner')}
+                                  </span>
+                                )}
+                                <span className="text-xs font-bold text-gray-800 truncate">{opt.text}</span>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          </div>
+                        );
+                      })}
+                    </div>
 
                     <div className="mt-3 text-right text-[11px] font-bold text-gray-400">
                       {t('totalParticipants')} {pollTotal.toLocaleString()}

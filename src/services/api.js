@@ -235,6 +235,13 @@ class ApiClient {
     });
   }
 
+  // About Leader & Public Profile
+  getAboutLeader() {
+    return this.request('/about-leader', {
+      method: 'GET',
+    });
+  }
+
   getAreaTree() {
     return this.request('/areas/tree', {
       method: 'GET',
@@ -318,6 +325,19 @@ class ApiClient {
   getMyComplaints(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/complaints/my${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  }
+
+  getPublicComplaints(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/complaints/public${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  }
+
+  getMyComplaintStats() {
+    return this.request('/complaints/my/stats', {
       method: 'GET',
     });
   }
@@ -494,6 +514,22 @@ class ApiClient {
       method: 'GET',
     });
   }
+
+  // Firebase Cloud Messaging (FCM) Push Notifications
+  registerFcmToken(token) {
+    return this.request('/notifications/register-token', {
+      method: 'POST',
+      body: { token },
+    });
+  }
+
+  testFcmPush(token) {
+    return this.request('/notifications/test-push', {
+      method: 'POST',
+      body: token ? { token } : {},
+    });
+  }
 }
 
 export const api = new ApiClient();
+

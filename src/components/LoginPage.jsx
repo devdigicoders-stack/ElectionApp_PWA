@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
 import { useTenant } from '../context/TenantContext';
+import { syncFcmTokenIfPermitted } from '../services/firebase';
 import { HiArrowLeft } from 'react-icons/hi2';
 
 export default function LoginPage() {
@@ -126,6 +127,9 @@ export default function LoginPage() {
         api.setToken(data.token);
       }
 
+      // Sync FCM push token in background
+      syncFcmTokenIfPermitted();
+
       const userData = data?.user || {};
       const isNewUser = data?.isNewUser ?? !userData?.isProfileComplete;
 
@@ -147,7 +151,7 @@ export default function LoginPage() {
         storage.setUser({ 
           ...userData, 
           mobile: mobileNumber, 
-          isRegistered: false,
+          isRegistered: false, 
           isProfileComplete: false
         });
         setIsVerified(true);

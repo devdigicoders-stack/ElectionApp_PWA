@@ -10,29 +10,23 @@ import {
   HiArrowLeft, 
   HiPlus, 
   HiXMark, 
-  HiCheck, 
   HiSparkles,
-  HiClock,
   HiPhoto,
-  HiMapPin,
-  HiLightBulb,
-  HiOutlineClipboardDocumentCheck
+  HiMapPin
 } from 'react-icons/hi2';
 import { 
   FaDroplet, 
   FaRoad, 
   FaBoltLightning, 
   FaBroom, 
-  FaLightbulb, 
   FaGraduationCap, 
   FaHospital, 
-  FaClipboardList,
-  FaPhoneVolume
+  FaClipboardList
 } from 'react-icons/fa6';
 
 export default function ComplaintPage() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const fileInputRef = useRef(null);
   const { primaryColor } = useTenant();
 
@@ -63,7 +57,7 @@ export default function ComplaintPage() {
     if (n.includes('water') || n.includes('jal') || n.includes('pipe') || n.includes('supply')) {
       return { icon: <FaDroplet className="w-5 h-5 text-blue-500" />, bg: 'bg-blue-50', nameHi: 'जल आपूर्ति' };
     }
-    if (n.includes('garbage') || n.includes('kachra') || n.includes('clean') || n.includes('drain') || n.includes('sewer')) {
+    if (n.includes('garbage') || n.includes('kachra') || n.includes('clean') || n.includes('drain') || n.includes('sewer') || n.includes('sanitat')) {
       return { icon: <FaBroom className="w-5 h-5 text-emerald-600" />, bg: 'bg-emerald-50', nameHi: 'सफाई व नाली' };
     }
     if (n.includes('health') || n.includes('hospital') || n.includes('doctor') || n.includes('swasthya')) {
@@ -139,7 +133,7 @@ export default function ComplaintPage() {
   const handleImagePick = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length + images.length > 5) {
-      toast.warning('You can attach a maximum of 5 images');
+      toast.warning(language === 'en' ? 'You can attach a maximum of 5 images' : 'अधिकतम 5 फोटो जोड़ सकते हैं');
       return;
     }
     const newImgs = files.map(file => ({ file, url: URL.createObjectURL(file) }));
@@ -152,14 +146,14 @@ export default function ComplaintPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = storage.getToken();
+    const token = storage.getToken() || api.getToken();
     if (!token) {
-      toast.info('Please log in or register to submit a grievance');
+      toast.info(language === 'en' ? 'Please log in to submit a complaint' : 'शिकायत दर्ज करने के लिए कृपया लॉगिन करें');
       navigate('/login');
       return;
     }
     if (!selectedCategory || !formData.title.trim() || !formData.description.trim()) {
-      toast.error('Please fill all required fields');
+      toast.error(language === 'en' ? 'Please fill all required fields' : 'कृपया सभी आवश्यक फ़ील्ड भरें');
       return;
     }
 
@@ -189,20 +183,21 @@ export default function ComplaintPage() {
       };
 
       const result = await api.createComplaint(complaintData);
-      toast.success('Complaint submitted successfully!');
+      toast.success(language === 'en' ? 'Complaint registered successfully!' : 'शिकायत सफलतापूर्वक दर्ज की गई!');
       const localRecord = {
-        _id: result.data?._id || `LOCAL_${Date.now()}`,
+        _id: result?.data?._id || result?._id || `LOCAL_${Date.now()}`,
+        id: result?.complaintNumber || `CMP-${Math.floor(1000 + Math.random() * 9000)}`,
         title: formData.title,
         category: selectedCategory,
         priority: 'Medium',
-        status: 'Open',
+        status: 'Pending',
         createdAt: new Date().toISOString()
       };
       storage.addComplaint(localRecord);
       navigate('/my-complaints');
     } catch (err) {
       console.error('Submit error:', err);
-      toast.error(err.message || 'Submission failed');
+      toast.error(err.message || (language === 'en' ? 'Submission failed' : 'शिकायत दर्ज नहीं हो सकी'));
     } finally {
       setIsSubmitting(false);
     }
@@ -210,12 +205,19 @@ export default function ComplaintPage() {
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden">
+      
+      {/* Top Header */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-white border-b border-gray-100 shadow-xs z-20 gap-2">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 transition-all">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 transition-all"
+          >
             <HiArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-base font-extrabold text-[#1e293b] truncate">{t('grievanceForm')}</h1>
+          <h1 className="text-base font-extrabold text-[#1e293b] truncate">
+            {language === 'en' ? 'Submit Complaint' : 'शिकायत दर्ज करें'}
+          </h1>
         </div>
       </div>
 
@@ -224,90 +226,152 @@ export default function ComplaintPage() {
           <LoadingSpinner message={t('loading')} />
         </div>
       ) : (
-      <div className="flex-1 w-full overflow-y-auto">
-        <div className="p-4 pb-28 flex flex-col gap-5 max-w-lg mx-auto">
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>1</span>
-                <h2 className="text-sm font-black text-gray-900">{t('selectCategory')}</h2>
+        <div className="flex-1 w-full overflow-y-auto">
+          <div className="p-4 pb-28 flex flex-col gap-5 max-w-lg mx-auto">
+            
+            {/* Step 1: Category Selection */}
+            <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" 
+                    style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                  >
+                    1
+                  </span>
+                  <h2 className="text-sm font-black text-gray-900">{t('selectCategory')}</h2>
+                </div>
               </div>
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-2xl px-4 text-xs font-bold text-gray-800 outline-none appearance-none"
-            >
-              {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name} {cat.nameHi ? `(${cat.nameHi})` : ''}</option>)}
-            </select>
-          </div>
-
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>2</span>
-              <h2 className="text-sm font-black text-gray-900">{t('areaDetails')}</h2>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5"><HiMapPin className="w-4 h-4" /> {t('constituency')}</label>
-              <select value={selectedAreaId} onChange={(e) => setSelectedAreaId(e.target.value)} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs font-bold">
-                {areasList.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-2xl px-4 text-xs font-bold text-gray-800 outline-none appearance-none"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name} {cat.nameHi ? `(${cat.nameHi})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('landmark')}</label>
-              <input type="text" value={formData.landmark} onChange={(e) => setFormData({...formData, landmark: e.target.value})} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" />
-            </div>
-          </div>
 
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>3</span>
-              <h2 className="text-sm font-black text-gray-900">{t('complaintDetails')}</h2>
-            </div>
-            <input type="text" placeholder={t('complaintTitlePlaceholder')} value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" />
-            <textarea rows="4" placeholder={t('complaintDescPlaceholder')} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs resize-none"></textarea>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5"><HiPhoto className="w-4 h-4" /> {t('attachPhotos')} ({images.length}/5)</label>
+            {/* Step 2: Area & Landmark */}
+            <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span 
+                  className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" 
+                  style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                >
+                  2
+                </span>
+                <h2 className="text-sm font-black text-gray-900">{t('areaDetails')}</h2>
               </div>
-              <input type="file" ref={fileInputRef} onChange={handleImagePick} multiple accept="image/*" className="hidden" />
-              <div className="flex gap-2.5 overflow-x-auto pb-1">
-                {images.length < 5 && (
-                  <button type="button" onClick={() => fileInputRef.current && fileInputRef.current.click()} className="w-20 h-20 shrink-0 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1">
-                    <HiPlus className="w-5 h-5" />
-                    <span className="text-[0.65rem] font-bold">{t('addPhoto')}</span>
-                  </button>
-                )}
-                {images.map((item, idx) => (
-                  <div key={idx} className="w-20 h-20 shrink-0 rounded-2xl overflow-hidden relative border border-gray-200 bg-gray-100">
-                    <img src={item.url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(idx)}
-                      className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm"
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                  <HiMapPin className="w-4 h-4" /> {t('constituency')} / Ward *
+                </label>
+                <select 
+                  value={selectedAreaId} 
+                  onChange={(e) => setSelectedAreaId(e.target.value)} 
+                  className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs font-bold"
+                >
+                  {areasList.map(a => (
+                    <option key={a._id} value={a._id}>{a.name} {a.code ? `(${a.code})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('landmark')}</label>
+                <input 
+                  type="text" 
+                  placeholder={language === 'en' ? 'e.g. Near Shiv Mandir, Main Road...' : 'उदा. शिव मंदिर के पास, मुख्य मार्ग...'}
+                  value={formData.landmark} 
+                  onChange={(e) => setFormData({ ...formData, landmark: e.target.value })} 
+                  className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" 
+                />
+              </div>
+            </div>
+
+            {/* Step 3: Complaint Details & Photos */}
+            <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span 
+                  className="w-6 h-6 rounded-full text-xs font-black flex items-center justify-center" 
+                  style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                >
+                  3
+                </span>
+                <h2 className="text-sm font-black text-gray-900">{t('complaintDetails')}</h2>
+              </div>
+              <input 
+                type="text" 
+                placeholder={t('complaintTitlePlaceholder')} 
+                value={formData.title} 
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
+                className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-3 text-xs" 
+              />
+              <textarea 
+                rows="4" 
+                placeholder={t('complaintDescPlaceholder')} 
+                value={formData.description} 
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs resize-none"
+              />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <HiPhoto className="w-4 h-4" /> {t('attachPhotos')} ({images.length}/5)
+                  </label>
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImagePick} 
+                  multiple 
+                  accept="image/*" 
+                  className="hidden" 
+                />
+                <div className="flex gap-2.5 overflow-x-auto pb-1">
+                  {images.length < 5 && (
+                    <button 
+                      type="button" 
+                      onClick={() => fileInputRef.current && fileInputRef.current.click()} 
+                      className="w-20 h-20 shrink-0 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 border-gray-300 hover:border-gray-400 bg-gray-50"
                     >
-                      <HiXMark className="w-3.5 h-3.5" />
+                      <HiPlus className="w-5 h-5" />
+                      <span className="text-[0.65rem] font-bold">{t('addPhoto')}</span>
                     </button>
-                  </div>
-                ))}
+                  )}
+                  {images.map((item, idx) => (
+                    <div key={idx} className="w-20 h-20 shrink-0 rounded-2xl overflow-hidden relative border border-gray-200 bg-gray-100">
+                      <img src={item.url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm"
+                      >
+                        <HiXMark className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+
+            {/* Submit Button */}
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="w-full py-4 text-white font-extrabold text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-60"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <HiSparkles className="w-5 h-5" />
+              <span>{isSubmitting ? (language === 'en' ? 'Submitting Complaint...' : 'शिकायत दर्ज हो रही है...') : (language === 'en' ? 'Submit Complaint' : 'शिकायत दर्ज करें')}</span>
+            </button>
+
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="w-full py-4 text-white font-extrabold text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2 hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-60"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <HiSparkles className="w-5 h-5" />
-            <span>{isSubmitting ? t('submittingGrievance') : t('submitGrievanceBtn')}</span>
-          </button>
-
         </div>
-      </div>
       )}
 
     </div>

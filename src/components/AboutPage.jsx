@@ -72,8 +72,23 @@ export default function AboutPage() {
   const message = leader?.message || '';
   const achievements = Array.isArray(leader?.achievements) ? leader.achievements : [];
   const timeline = Array.isArray(leader?.timeline) ? leader.timeline : [];
-  const contactInfo = leader?.contactInfo || {};
-  const socialLinks = leader?.socialLinks || {};
+  const rawContactInfo = leader?.contactInfo || {};
+  const contactInfo = {
+    phone: (rawContactInfo.phone || rawContactInfo.mobile || config?.branding?.contactNumber || config?.tenant?.mobileNumber || '').trim(),
+    email: (rawContactInfo.email || config?.branding?.contactEmail || config?.tenant?.email || '').trim(),
+    address: (rawContactInfo.address || config?.branding?.officeAddress || config?.tenant?.billingAddress || '').trim(),
+    officeAddress: (rawContactInfo.officeAddress || rawContactInfo.address || '').trim(),
+  };
+
+  const rawSocialLinks = leader?.socialLinks || {};
+  const socialLinks = {
+    facebook: (rawSocialLinks.facebook || config?.branding?.socialLinks?.facebook || '').trim(),
+    twitter: (rawSocialLinks.twitter || rawSocialLinks.x || config?.branding?.socialLinks?.twitter || '').trim(),
+    instagram: (rawSocialLinks.instagram || config?.branding?.socialLinks?.instagram || '').trim(),
+    whatsapp: (rawSocialLinks.whatsapp || config?.branding?.socialLinks?.whatsapp || '').trim(),
+    youtube: (rawSocialLinks.youtube || config?.branding?.socialLinks?.youtube || '').trim(),
+    website: (rawSocialLinks.website || config?.branding?.socialLinks?.website || '').trim(),
+  };
 
   // Dynamic media URL resolution
   const [activeImgUrl, setActiveImgUrl] = useState(null);
@@ -100,8 +115,15 @@ export default function AboutPage() {
     }
   };
 
-  const hasContactInfo = contactInfo.phone || contactInfo.email || contactInfo.officeAddress || contactInfo.address;
-  const hasSocialLinks = socialLinks.facebook || socialLinks.twitter || socialLinks.instagram || socialLinks.whatsapp || socialLinks.youtube || socialLinks.website;
+  const hasContactInfo = Boolean(contactInfo.phone || contactInfo.email || contactInfo.officeAddress || contactInfo.address);
+  const hasSocialLinks = Boolean(
+    socialLinks.facebook ||
+    socialLinks.twitter ||
+    socialLinks.instagram ||
+    socialLinks.whatsapp ||
+    socialLinks.youtube ||
+    socialLinks.website
+  );
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-white overflow-hidden pb-[72px]">

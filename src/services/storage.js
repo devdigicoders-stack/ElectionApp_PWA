@@ -10,6 +10,8 @@ const KEYS = {
   VOTED_POLLS: 'pwa_voted_polls_map',
   MEMBERSHIPS: 'pwa_memberships',
   VOLUNTEERS: 'pwa_volunteers',
+  SAVED_POSTERS: 'pwa_saved_posters',
+  SAVED_UPLOADS: 'pwa_saved_uploads',
 };
 
 export const storage = {
@@ -182,7 +184,98 @@ export const storage = {
     return updated;
   },
 
-  // Clear auth session data on logout (keeps persistent device votes intact)
+  // 🌟 Canva-Style "My Posters" Saved Store (Unlimited Multi-Save Support)
+  getSavedPosters: () => {
+    try {
+      const data = localStorage.getItem(KEYS.SAVED_POSTERS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  savePoster: (posterData) => {
+    try {
+      const list = storage.getSavedPosters();
+      // Generate a new unique ID if not explicitly specified
+      const id = posterData.id || `poster-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const existingIdx = list.findIndex(p => p.id === id);
+      let updated;
+      if (existingIdx >= 0) {
+        updated = [...list];
+        updated[existingIdx] = { ...posterData, id, updatedAt: new Date().toISOString() };
+      } else {
+        updated = [{ ...posterData, id, createdAt: new Date().toISOString() }, ...list];
+      }
+      try {
+        localStorage.setItem(KEYS.SAVED_POSTERS, JSON.stringify(updated));
+      } catch (quotaErr) {
+        // Fallback: if storage quota is full, compress list without heavy thumbnails
+        const compacted = updated.map(p => ({
+          ...p,
+          thumbnail: p.bgImage || null
+        })).slice(0, 20);
+        localStorage.setItem(KEYS.SAVED_POSTERS, JSON.stringify(compacted));
+      }
+      return updated;
+    } catch (e) {
+      console.error('Error saving poster:', e);
+      return storage.getSavedPosters();
+    }
+  },
+
+  deleteSavedPoster: (id) => {
+    try {
+      const list = storage.getSavedPosters();
+      const updated = list.filter(p => p.id !== id);
+      localStorage.setItem(KEYS.SAVED_POSTERS, JSON.stringify(updated));
+      return updated;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  // 🌟 Canva-Style "Uploads" Reusable Photo Gallery Store
+  getSavedUploads: () => {
+    try {
+      const data = localStorage.getItem(KEYS.SAVED_UPLOADS);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  addSavedUpload: (uploadItem) => {
+    try {
+      const list = storage.getSavedUploads();
+      const id = uploadItem.id || `upload-${Date.now()}`;
+      // Prevent duplicate URLs/src
+      const filtered = list.filter(u => u.src !== uploadItem.src && u.id !== id);
+      let updated = [{ ...uploadItem, id, createdAt: new Date().toISOString() }, ...filtered];
+      // Limit to 40 uploaded items
+      if (updated.length > 40) {
+        updated = updated.slice(0, 40);
+      }
+      localStorage.setItem(KEYS.SAVED_UPLOADS, JSON.stringify(updated));
+      return updated;
+    } catch (e) {
+      console.error('Error saving upload:', e);
+      return storage.getSavedUploads();
+    }
+  },
+
+  deleteSavedUpload: (id) => {
+    try {
+      const list = storage.getSavedUploads();
+      const updated = list.filter(u => u.id !== id);
+      localStorage.setItem(KEYS.SAVED_UPLOADS, JSON.stringify(updated));
+      return updated;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  // Clear auth session data on logout (keeps persistent device votes & posters intact)
   clear: () => {
     localStorage.removeItem(KEYS.USER);
     localStorage.removeItem(KEYS.TOKEN);

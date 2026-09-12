@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { getMediaUrl } from '../utils/mediaUrl';
+import { shareContent, downloadMedia } from '../utils/shareAndDownload';
 
 export default function PhotoGalleryPage() {
   const navigate = useNavigate();
@@ -21,19 +22,26 @@ export default function PhotoGalleryPage() {
     const fetchPhotos = async () => {
       try {
         setIsLoading(true);
-        const params = { type: 'photo', limit: 50 };
-        const res = await api.getGallery(params).catch(() => []);
-        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        const res = await api.getGallery({ limit: 100 }).catch(() => []);
+        const list = Array.isArray(res?.data?.data) 
+          ? res.data.data 
+          : (Array.isArray(res?.data) 
+            ? res.data 
+            : (Array.isArray(res?.items) 
+              ? res.items 
+              : (Array.isArray(res) ? res : [])));
 
-        if (list.length > 0) {
-          const formatted = list.map((item, idx) => ({
+        const validItems = list.filter(item => Boolean(item && (item.imageUrl || item.url || item.image || item.mediaUrl)));
+
+        if (validItems.length > 0) {
+          const formatted = validItems.map((item, idx) => ({
             id: item._id || item.id || idx + 1,
             category: item.category || 'General',
-            title: item.title || 'Event Photo',
+            title: item.title || 'Photo',
             description: item.description || '',
             date: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
-            url: getMediaUrl(item.imageUrl || item.url),
-            rawUrl: item.imageUrl || item.url || '',
+            url: getMediaUrl(item.imageUrl || item.url || item.image || item.mediaUrl),
+            rawUrl: item.imageUrl || item.url || item.image || item.mediaUrl || '',
             allowDownload: item.allowDownload !== false,
           }));
           setPhotos(formatted);
@@ -60,16 +68,17 @@ export default function PhotoGalleryPage() {
     : photos.filter(p => p.category === activeTab);
 
   const handleShare = (photo) => {
-    if (navigator.share) {
-      navigator.share({
-        title: photo.title,
-        text: `${photo.title}${photo.description ? ` - ${photo.description}` : ''}`,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(photo.url);
-      toast.success('Photo link copied to clipboard!');
-    }
+    shareContent({
+      title: photo.title,
+      text: `${photo.title}${photo.description ? ` - ${photo.description}` : ''}`,
+      url: window.location.href,
+    });
+  };
+
+  const handleDownloadPhoto = (photo) => {
+    if (!photo?.url) return;
+    const ext = photo.url.includes('.png') ? 'png' : 'jpg';
+    downloadMedia(photo.url, `gallery-photo-${photo.id || Date.now()}.${ext}`);
   };
 
   return (
@@ -119,31 +128,34 @@ export default function PhotoGalleryPage() {
                 onClick={() => setSelectedPhoto(photo)}
                 className="w-full rounded-2xl overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-sm border border-gray-100 bg-white flex flex-col group hover:shadow-md"
               >
-                {/* Image Container with contain mode so full logo/photo is 100% visible */}
-                <div className="w-full h-36 bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
+                {/* Image Container: Clean image with no badge on top */}
+                <div className="w-full h-36 bg-gray-50 flex items-center justify-center p-2 overflow-hidden">
                   <img 
                     src={photo.url} 
                     alt={photo.title} 
                     className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
                   />
-                  <div className="absolute top-2 left-2">
+                </div>
+
+                {/* Card Footer Details with Category, Title & Date */}
+                <div className="p-3 bg-white border-t border-gray-100 flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-1">
                     <span 
-                      className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-md text-white shadow-xs"
-                      style={{ backgroundColor: primaryColor }}
+                      className="text-[9px] font-extrabold uppercase tracking-wider truncate block"
+                      style={{ color: primaryColor }}
                     >
                       {photo.category}
                     </span>
+                    <span className="text-[10px] text-gray-400 font-semibold shrink-0">
+                      {photo.date}
+                    </span>
                   </div>
-                </div>
-
-                {/* Card Footer Details */}
-                <div className="p-3 bg-white border-t border-gray-50 flex flex-col">
-                  <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-1 group-hover:text-primary transition-colors">
+                  <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                     {photo.title}
                   </p>
-                  <span className="text-[10px] text-gray-400 font-semibold mt-1">
-                    {photo.date}
-                  </span>
                 </div>
               </div>
             ))}
@@ -197,18 +209,15 @@ export default function PhotoGalleryPage() {
                 </svg>
                 Share Photo
               </button>
-              <a 
-                href={selectedPhoto.url}
-                target="_blank"
-                rel="noreferrer"
-                download
-                className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors"
+              <button 
+                onClick={() => handleDownloadPhoto(selectedPhoto)}
+                className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                HD View
-              </a>
+                Download
+              </button>
             </div>
           </div>
         </div>

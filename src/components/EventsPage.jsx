@@ -8,6 +8,7 @@ import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getMediaUrl } from '../utils/mediaUrl';
+import { shareContent } from '../utils/shareAndDownload';
 import {
   HiCalendarDays,
   HiClock,
@@ -175,16 +176,11 @@ export default function EventsPage() {
     domEvent.stopPropagation();
     domEvent.preventDefault();
     const url = `${window.location.origin}/events/${event.id}`;
-    try {
-      if (navigator.share && navigator.canShare?.({ url })) {
-        await navigator.share({ title: event.title, text: `${event.title} — ${event.date}`, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.info('Event link copied!');
-      }
-    } catch {
-      try { await navigator.clipboard.writeText(url); toast.info('Link copied!'); } catch {}
-    }
+    shareContent({
+      title: event.title,
+      text: `${event.title} (${event.eventType || 'Event'}) — ${event.date}`,
+      url: url,
+    });
   };
 
   const activeTabIndex = tabs.findIndex(t => t.id === activeTab);

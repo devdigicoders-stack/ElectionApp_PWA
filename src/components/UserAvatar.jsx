@@ -39,18 +39,19 @@ export default function UserAvatar({
           src={resolvedSrc} 
           alt={name || 'User Avatar'} 
           className="w-full h-full object-cover"
+          crossOrigin="anonymous"
           onError={() => setImgError(true)}
         />
       </div>
     );
   }
 
-  // Fallback Modern Dynamic Avatar with Initials or User Icon themed to Tenant
+  // Fallback Modern Dynamic Avatar with Initials or User Icon themed to Tenant (Solid color, no gradient)
   return (
     <div 
       className={`${className} ${roundedClassName} text-white flex items-center justify-center font-bold tracking-tight shadow-xs select-none shrink-0`}
       style={{
-        background: `linear-gradient(135deg, ${primaryColor || '#f37920'}, ${secondaryColor || primaryColor || '#e25d14'})`
+        backgroundColor: primaryColor || '#f37920'
       }}
     >
       {initials ? (

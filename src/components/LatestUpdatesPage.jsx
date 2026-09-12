@@ -6,6 +6,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { getMediaUrl } from '../utils/mediaUrl';
+import { shareContent } from '../utils/shareAndDownload';
 import { toast } from 'react-toastify';
 
 const ITEMS_PER_PAGE = 8;
@@ -79,16 +80,11 @@ export default function LatestUpdatesPage() {
 
   const handleShare = (e, item) => {
     e.stopPropagation();
-    if (navigator.share) {
-      navigator.share({
-        title: item.title,
-        text: item.description,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${item.title}\n${window.location.href}`);
-      toast.success('Link copied to clipboard!');
-    }
+    shareContent({
+      title: item.title,
+      text: item.description,
+      url: window.location.href,
+    });
   };
 
   const filtered = activeTab === 'All' ? news : news.filter(u => u.category === activeTab);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import LoadingSpinner from './LoadingSpinner';
@@ -8,31 +8,32 @@ import {
   HiArrowDownTray, 
   HiShare, 
   HiDocumentText, 
-  HiSparkles 
+  HiSparkles,
+  HiMagnifyingGlass,
+  HiChevronDown,
+  HiChevronUp,
+  HiPhoto
 } from 'react-icons/hi2';
-import { 
-  FaTractor, 
-  FaBriefcase, 
-  FaGraduationCap, 
-  FaHospital, 
-  FaRoad, 
-  FaPersonDress, 
-  FaShieldHalved 
-} from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
+import { useLanguage } from '../context/LanguageContext';
+import { getMediaUrl } from '../utils/mediaUrl';
+import { shareContent, downloadMedia } from '../utils/shareAndDownload';
 
 export default function ManifestoPage() {
   const navigate = useNavigate();
   const { primaryColor, secondaryColor, leaderName } = useTenant();
+  const { t } = useLanguage();
   const [activeCategory, setActiveCategory] = useState('All');
-  const [categories, setCategories] = useState(['All', 'Youth & Jobs', 'Farmers', 'Education', 'Healthcare', 'Infrastructure', 'Women Welfare']);
-  const [activeView, setActiveView] = useState('promises'); // 'promises' | 'progress'
+  const [categories, setCategories] = useState(['All']);
+  const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState([]);
+  const [expandedId, setExpandedId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const tabsRef = useRef(null);
 
-  // Load dynamic categories from backend
+  // 1. Fetch Categories
   useEffect(() => {
     const fetchCategories = async () => {
       const slug = api.getTenantSlug();
@@ -50,6 +51,7 @@ export default function ManifestoPage() {
     fetchCategories();
   }, []);
 
+  // 2. Fetch Manifesto items according to selected category
   useEffect(() => {
     const fetchManifesto = async () => {
       const slug = api.getTenantSlug();
@@ -63,18 +65,37 @@ export default function ManifestoPage() {
         const categoryParam = activeCategory !== 'All' ? activeCategory : undefined;
         const res = await api.getManifesto(categoryParam).catch(() => []);
         const list = Array.isArray(res) ? res : (res?.data || []);
+
         if (list.length > 0) {
-          setItems(list.map((m, idx) => ({
-            id: m._id || m.id || idx + 1,
-            title: m.title,
-            category: m.category || 'Development',
-            progress: m.progress || (m.status === 'completed' ? 100 : (m.status === 'in_progress' ? 70 : 85)),
-            status: m.status || (m.progress === 100 ? 'Achieved' : 'In Progress'),
-            targetYear: m.targetYear || '2027',
-            summary: m.description || m.shortDescription || '',
-            points: Array.isArray(m.points) && m.points.length > 0 ? m.points : (m.description ? [m.description] : ['Dedicated execution under leader vision.']),
-            images: m.images || []
-          })));
+          const formatted = list.map((m, idx) => {
+            const rawPdf = m.pdfUrl || (m.fileType === 'pdf' ? m.fileUrl : null);
+            const pdfUrl = rawPdf ? getMediaUrl(rawPdf) : null;
+            const coverImg = m.coverImageUrl || (m.fileType === 'image' ? m.fileUrl : null) || (Array.isArray(m.images) && m.images.length > 0 ? m.images[0] : null);
+
+            return {
+              id: m._id || m.id || idx + 1,
+              title: m.title || 'Manifesto Commitment',
+              category: m.category || 'General',
+              description: m.description || '',
+              points: Array.isArray(m.points) && m.points.length > 0 ? m.points : [],
+              images: Array.isArray(m.images) ? m.images.map(img => getMediaUrl(img)).filter(Boolean) : [],
+              coverImageUrl: coverImg ? getMediaUrl(coverImg) : null,
+              pdfUrl: pdfUrl,
+              fileUrl: m.fileUrl ? getMediaUrl(m.fileUrl) : null,
+              fileType: m.fileType || 'pdf',
+              createdAt: m.createdAt,
+            };
+          });
+
+          setItems(formatted);
+
+          // If categories was just ['All'], also collect from items
+          if (activeCategory === 'All') {
+            const dynamicCats = ['All', ...new Set(formatted.map(item => item.category).filter(Boolean))];
+            if (dynamicCats.length > 1) {
+              setCategories(dynamicCats);
+            }
+          }
         } else {
           setItems([]);
         }
@@ -88,61 +109,90 @@ export default function ManifestoPage() {
     fetchManifesto();
   }, [activeCategory]);
 
-  const displayList = items;
-  const filteredItems = activeCategory === 'All' 
-    ? displayList 
-    : displayList.filter(item => item.category === activeCategory);
+  // Auto-slide category tabs
+  useEffect(() => {
+    if (!tabsRef.current || categories.length <= 3) return;
+    const el = tabsRef.current;
+    const step = 110;
+    const timer = setInterval(() => {
+      if (!el) return;
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll <= 5) return;
+      if (el.scrollLeft + step >= maxScroll - 10) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: step, behavior: 'smooth' });
+      }
+    }, 2800);
 
-  const overallProgress = displayList.length > 0 
-    ? Math.round(displayList.reduce((acc, curr) => acc + (curr.progress || 80), 0) / displayList.length)
-    : 100;
+    return () => clearInterval(timer);
+  }, [categories.length]);
 
-  const handleDownload = () => {
-    toast.success('Sankalp Patra PDF download initiated!');
+  // Search filter
+  const filteredItems = items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const matchesTitle = item.title && item.title.toLowerCase().includes(q);
+    const matchesDesc = item.description && item.description.toLowerCase().includes(q);
+    const matchesPoints = Array.isArray(item.points) && item.points.some(p => p.toLowerCase().includes(q));
+    const matchesCat = item.category && item.category.toLowerCase().includes(q);
+    return matchesTitle || matchesDesc || matchesPoints || matchesCat;
+  });
+
+  const handleDownload = (item = null) => {
+    const targetUrl = item?.pdfUrl || item?.fileUrl || (items.find(i => i.pdfUrl)?.pdfUrl);
+    if (targetUrl) {
+      downloadMedia(targetUrl, `${item?.title || 'manifesto-document'}.pdf`);
+    } else {
+      toast.info('घोषणा पत्र पीडीएफ जल्द उपलब्ध होगी।');
+    }
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'Sankalp Patra - Vision Document',
-        text: `Check out the Sankalp Patra (Manifesto) and progress report of ${leaderName || 'our Leader'}.`,
-        url: window.location.href
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast.info('Manifesto link copied to clipboard!');
-    }
+  const handleShare = (item = null) => {
+    const text = item 
+      ? `${item.title} - ${item.description || 'Sankalp Patra by ' + (leaderName || 'our Leader')}` 
+      : `Check out the Sankalp Patra (Manifesto) of ${leaderName || 'our Leader'}.`;
+
+    shareContent({
+      title: item?.title || 'Sankalp Patra - Manifesto',
+      text: text,
+      url: window.location.href
+    });
   };
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-[#f8fafc] overflow-hidden pb-[72px]">
       
-      {/* Crisp White Header */}
+      {/* Top Header */}
       <div className="bg-white border-b border-gray-100 px-4 pt-3.5 pb-3 shadow-xs shrink-0 z-20">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button 
               onClick={() => navigate(-1)} 
-              className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all"
+              className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shrink-0"
             >
               <HiArrowLeft className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="text-base font-extrabold text-[#0f172a] leading-tight">Sankalp Patra 2026</h1>
-              <p className="text-[0.7rem] font-semibold text-gray-400">Our Commitments & Delivery</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base font-extrabold text-[#0f172a] leading-tight truncate">
+                {t('manifesto') || 'Sankalp Patra (Manifesto)'}
+              </h1>
+              <p className="text-[0.7rem] font-semibold text-gray-400 truncate">
+                {leaderName ? `Vision & Commitments of ${leaderName}` : 'Vision & Commitments'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button 
-              onClick={handleDownload}
-              className="w-9 h-9 rounded-full bg-orange-50 border border-orange-200 text-[#f37920] flex items-center justify-center hover:bg-orange-100 active:scale-95 transition-all"
+              onClick={() => handleDownload()}
+              className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 text-gray-700 flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all"
               title="Download PDF"
             >
               <HiArrowDownTray className="w-4 h-4" />
             </button>
             <button 
-              onClick={handleShare}
+              onClick={() => handleShare()}
               className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 text-gray-700 flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all"
               title="Share"
             >
@@ -150,146 +200,169 @@ export default function ManifestoPage() {
             </button>
           </div>
         </div>
-
-        {/* View Toggle Tabs (Promises vs Delivery Progress) */}
-        <div className="flex items-center gap-2 mt-3.5">
-          <button
-            onClick={() => setActiveView('promises')}
-            className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
-              activeView === 'promises'
-                ? 'text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 border-transparent hover:bg-gray-200/80'
-            }`}
-            style={activeView === 'promises' ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
-          >
-            <HiDocumentText className="w-4 h-4" />
-            <span>Key Promises ({displayList.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveView('progress')}
-            className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
-              activeView === 'progress'
-                ? 'text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 border-transparent hover:bg-gray-200/80'
-            }`}
-            style={activeView === 'progress' ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
-          >
-            <HiSparkles className="w-4 h-4" />
-            <span>Delivery Tracker ({overallProgress}%)</span>
-          </button>
-        </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto w-full p-4">
         
-        {/* Overall Progress Card */}
-        <div 
-          className="rounded-3xl p-5 text-white shadow-md mb-4 relative overflow-hidden"
-          style={{ background: `linear-gradient(135deg, #0f172a, ${primaryColor}dd)` }}
-        >
-          <div className="flex items-center justify-between mb-3 relative z-10">
-            <div>
-              <span className="text-[0.65rem] font-black uppercase tracking-widest text-orange-300">Report Card</span>
-              <h3 className="text-base font-black">Manifesto Fulfilment</h3>
-            </div>
-            <div className="text-right">
-              <span className="text-2xl font-black text-white">{overallProgress}%</span>
-              <p className="text-[0.65rem] text-gray-200 font-bold">Achieved / On Track</p>
-            </div>
+        {/* Search Input */}
+        <div className="relative w-full mb-3">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <HiMagnifyingGlass className="h-4 w-4 text-gray-400" />
           </div>
-
-          <div className="w-full h-2.5 bg-white/20 rounded-full overflow-hidden relative z-10">
-            <div 
-              className="h-full bg-white rounded-full transition-all duration-1000"
-              style={{ width: `${overallProgress}%` }}
-            ></div>
-          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none text-xs font-medium shadow-2xs"
+            placeholder="घोषणा पत्र में खोजें (Search commitments...)"
+          />
         </div>
 
-        {/* Category Horizontal Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-hide pb-3 pt-0.5">
-          {categories.map((cat, idx) => {
-            const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
-            const isActive = activeCategory === catName;
-            return (
-              <button
-                key={idx}
-                onClick={() => setActiveCategory(catName)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 border ${
-                  isActive
-                    ? 'text-white shadow-xs'
-                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                }`}
-                style={isActive ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
-              >
-                {catName}
-              </button>
-            );
-          })}
-        </div>
+        {/* Category Auto-Sliding Chips */}
+        {categories.length > 1 && (
+          <div 
+            ref={tabsRef}
+            className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-3 pt-0.5 scroll-smooth"
+          >
+            {categories.map((cat, idx) => {
+              const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
+              const isActive = activeCategory === catName;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setActiveCategory(catName)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 border ${
+                    isActive
+                      ? 'text-white shadow-xs'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                  style={isActive ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                >
+                  {catName}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Manifesto Cards List */}
         <div className="flex flex-col gap-3.5 pb-6">
           {isLoading ? (
             <LoadingSpinner message="घोषणा पत्र लोड हो रहा है..." />
           ) : filteredItems.length > 0 ? (
-            filteredItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
-                
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
-                    >
-                      <HiSparkles className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider">{item.category}</span>
-                      <h3 className="text-sm font-extrabold text-gray-900 leading-tight">{item.title}</h3>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[0.6rem] font-black shrink-0 ${
-                    item.status === 'Achieved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
+            filteredItems.map((item) => {
+              const isExpanded = expandedId === item.id;
+              const hasPdf = Boolean(item.pdfUrl || item.fileUrl);
 
-                {/* Progress Bar (Always visible for accountability) */}
-                <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                  <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-                    <span className="text-gray-500 text-[0.7rem]">Implementation Progress</span>
-                    <span className="font-black" style={{ color: primaryColor }}>{item.progress}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full"
-                      style={{ 
-                        background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
-                        width: `${item.progress}%` 
-                      }}
-                    ></div>
-                  </div>
-                </div>
+              return (
+                <div 
+                  key={item.id} 
+                  className="bg-white rounded-2xl p-4 shadow-2xs border border-gray-100 flex flex-col gap-3 hover:border-gray-200 transition-all"
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                      >
+                        <HiSparkles className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span 
+                          className="text-[0.65rem] font-black uppercase tracking-wider block truncate"
+                          style={{ color: primaryColor }}
+                        >
+                          {item.category}
+                        </span>
+                        <h3 className="text-sm font-extrabold text-gray-900 leading-tight">
+                          {item.title}
+                        </h3>
+                      </div>
+                    </div>
 
-                {/* Key Bullet Points */}
-                <div className="space-y-2 pt-1 border-t border-gray-50">
-                  {item.points.map((pt, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <HiCheckCircle 
-                        className="w-4 h-4 shrink-0 mt-0.5" 
-                        style={{ color: primaryColor }}
+                    {hasPdf && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(item);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[0.65rem] font-bold bg-orange-50 text-[#f37920] border border-orange-200 hover:bg-orange-100 active:scale-95 transition-all flex items-center gap-1 shrink-0"
+                      >
+                        <HiArrowDownTray className="w-3.5 h-3.5" />
+                        <span>PDF</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Cover Image if available */}
+                  {item.coverImageUrl && (
+                    <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-100 border border-gray-100">
+                      <img
+                        src={item.coverImageUrl}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.style.display = 'none'; }}
                       />
-                      <p className="text-xs font-medium text-gray-700 leading-snug">{pt}</p>
                     </div>
-                  ))}
-                </div>
+                  )}
 
-              </div>
-            ))
+                  {/* Description / Summary */}
+                  {item.description && (
+                    <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                      {item.description}
+                    </p>
+                  )}
+
+                  {/* Key Bullet Points */}
+                  {item.points && item.points.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-gray-100">
+                      {item.points.map((pt, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <HiCheckCircle 
+                            className="w-4 h-4 shrink-0 mt-0.5" 
+                            style={{ color: primaryColor }}
+                          />
+                          <p className="text-xs font-semibold text-gray-800 leading-snug">{pt}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Multiple Gallery Images attached to commitment */}
+                  {item.images && item.images.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide pt-1">
+                      {item.images.map((img, i) => (
+                        <div key={i} className="w-24 h-20 rounded-lg overflow-hidden shrink-0 border border-gray-100 bg-gray-50">
+                          <img
+                            src={img}
+                            alt="Commitment attachment"
+                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => window.open(img, '_blank')}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action Footer */}
+                  <div className="pt-2 border-t border-gray-50 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-400">
+                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Official Promise'}
+                    </span>
+                    <button
+                      onClick={() => handleShare(item)}
+                      className="text-[11px] font-bold text-gray-500 hover:text-gray-800 flex items-center gap-1"
+                    >
+                      <HiShare className="w-3.5 h-3.5" />
+                      <span>Share</span>
+                    </button>
+                  </div>
+
+                </div>
+              );
+            })
           ) : (
             <div className="flex flex-col items-center justify-center h-48 text-center p-6 bg-white rounded-2xl border border-gray-100 my-4">
               <div 
@@ -298,8 +371,8 @@ export default function ManifestoPage() {
               >
                 <HiDocumentText className="w-7 h-7" />
               </div>
-              <p className="text-gray-800 font-extrabold text-sm">No Promises in this Category</p>
-              <p className="text-gray-400 font-semibold text-xs mt-0.5">Select another category or view all commitments.</p>
+              <p className="text-gray-800 font-extrabold text-sm">No Manifesto Promises Found</p>
+              <p className="text-gray-400 font-semibold text-xs mt-0.5">Please select another category or check back later.</p>
             </div>
           )}
         </div>

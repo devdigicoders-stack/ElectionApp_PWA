@@ -5,12 +5,19 @@ import LoadingSpinner from './LoadingSpinner';
 import { useTenant } from '../context/TenantContext';
 import { api } from '../services/api';
 import { 
+  getNotificationPermissionStatus, 
+  requestFcmToken, 
+  getStoredFcmToken 
+} from '../services/firebase';
+import { 
   HiArrowLeft, 
   HiBell, 
   HiInformationCircle, 
   HiExclamationTriangle, 
   HiCalendarDays, 
-  HiSparkles
+  HiSparkles,
+  HiCheckCircle,
+  HiPaperAirplane
 } from 'react-icons/hi2';
 import { toast } from 'react-toastify';
 
@@ -21,6 +28,72 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [pushPermission, setPushPermission] = useState(getNotificationPermissionStatus());
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
+
+  useEffect(() => {
+    setPushPermission(getNotificationPermissionStatus());
+  }, []);
+
+  const handleEnablePush = async () => {
+    setIsEnablingPush(true);
+    try {
+      const res = await requestFcmToken({ showToasts: true });
+      if (res.success) {
+        setPushPermission('granted');
+      } else {
+        setPushPermission(getNotificationPermissionStatus());
+      }
+    } finally {
+      setIsEnablingPush(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    const token = getStoredFcmToken();
+    setIsSendingTest(true);
+
+    // 1. Immediately trigger native browser notification popup
+    if (Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.showNotification('🔔 Vidyak Push Notification', {
+            body: 'Firebase Cloud Messaging (FCM) live test notification!',
+            icon: '/logo.png',
+            badge: '/logo.png',
+            vibrate: [200, 100, 200],
+            data: { url: '/notifications' },
+          });
+        }).catch(() => {
+          new Notification('🔔 Vidyak Push Notification', {
+            body: 'Firebase Cloud Messaging (FCM) live test notification!',
+            icon: '/logo.png',
+          });
+        });
+      } else {
+        new Notification('🔔 Vidyak Push Notification', {
+          body: 'Firebase Cloud Messaging (FCM) live test notification!',
+          icon: '/logo.png',
+        });
+      }
+    }
+
+    // 2. Also dispatch backend FCM push via Firebase Admin
+    try {
+      const res = await api.testFcmPush(token || undefined);
+      if (res?.success) {
+        toast.success('Test push sent via FCM Server! Check notification tray.');
+      } else {
+        toast.info(res?.message || res?.error || 'Test push triggered.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Could not send test push.');
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -204,6 +277,72 @@ export default function NotificationsPage() {
       {/* Notifications List */}
       <div className="flex-1 overflow-y-auto w-full p-4">
         <div className="flex flex-col gap-3 pb-6">
+
+          {/* FCM Push Notification Banner */}
+          {pushPermission === 'granted' ? (
+            <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-200/80 rounded-2xl p-3.5 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <HiCheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h4 className="text-xs font-bold text-gray-900">Push Notifications Active</h4>
+                  </div>
+                  <p className="text-[0.68rem] text-gray-500 font-medium">You'll receive real-time updates & alerts on this device</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSendTestPush}
+                disabled={isSendingTest}
+                className="px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-xs font-extrabold hover:bg-gray-50 active:scale-95 transition-all shadow-xs flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+                title="Send a live test notification to verify FCM"
+              >
+                <HiPaperAirplane className="w-3.5 h-3.5 text-blue-500" />
+                <span>{isSendingTest ? 'Sending...' : 'Test Push'}</span>
+              </button>
+            </div>
+          ) : pushPermission === 'denied' ? (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0">
+                <HiExclamationTriangle className="w-4 h-4" />
+              </div>
+              <p className="text-xs font-medium text-rose-800">
+                Push notifications are blocked in your browser. Allow notifications in site settings to receive live alerts.
+              </p>
+            </div>
+          ) : (
+            <div 
+              className="rounded-2xl p-3.5 flex items-center justify-between shadow-xs border transition-all"
+              style={{ backgroundColor: `${primaryColor}0d`, borderColor: `${primaryColor}30` }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div 
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <HiBell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-extrabold text-[#0f172a]">Enable Live Push Notifications</h4>
+                  <p className="text-[0.68rem] text-gray-500 font-medium">Get instant updates about events, news & complaints</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleEnablePush}
+                disabled={isEnablingPush}
+                className="px-3 py-1.5 rounded-xl text-white text-xs font-extrabold active:scale-95 transition-all shadow-xs flex items-center gap-1 shrink-0 disabled:opacity-60"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <HiSparkles className="w-3.5 h-3.5" />
+                <span>{isEnablingPush ? 'Enabling...' : 'Enable'}</span>
+              </button>
+            </div>
+          )}
+
           {isLoading ? (
             <LoadingSpinner message="सूचनाएं लोड हो रही हैं..." />
           ) : filtered.length > 0 ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import LoadingSpinner from './LoadingSpinner';
@@ -11,6 +11,7 @@ import CompleteProfileModal from './CompleteProfileModal';
 import { FaXTwitter, FaFacebookF, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { HiLanguage } from 'react-icons/hi2';
 import { getMediaUrl } from '../utils/mediaUrl';
+import { shareContent } from '../utils/shareAndDownload';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -33,25 +34,11 @@ export default function HomePage() {
 
   const handleShareBanner = async (e, slide) => {
     e.stopPropagation();
-    const shareData = {
+    shareContent({
       title: slide.title || 'Vidyak Banner',
       text: slide.desc || slide.title || 'Check out this update',
       url: slide.linkUrl || window.location.href,
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.warn('Share cancelled or failed', err);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(slide.img || window.location.href);
-        alert('Banner link/image URL copied to clipboard!');
-      } catch (err) {
-        alert('Sharing not supported on this browser');
-      }
-    }
+    });
   };
 
   const handleOpenBanner = (e, slide) => {
@@ -156,38 +143,57 @@ export default function HomePage() {
         }
 
         // 4. Fetch Latest News & Updates
-        const newsRes = await api.getNews({ limit: 4 }).catch(() => []);
+        const newsRes = await api.getNews({ limit: 100 }).catch(() => []);
         const newsList = Array.isArray(newsRes) ? newsRes : (newsRes?.data || []);
         if (newsList.length > 0) {
           setLatestUpdates(newsList);
         }
 
         // 5. Fetch Upcoming Events
-        const eventsRes = await api.getEvents({ upcoming: 'true', limit: 4 }).catch(() => []);
-        const eventsList = Array.isArray(eventsRes?.items)
+        const eventsRes = await api.getEvents({ limit: 100 }).catch(() => []);
+        const rawEvents = Array.isArray(eventsRes?.items)
           ? eventsRes.items
           : (Array.isArray(eventsRes?.data?.items)
             ? eventsRes.data.items
             : (Array.isArray(eventsRes?.data)
               ? eventsRes.data
               : (Array.isArray(eventsRes) ? eventsRes : [])));
-        if (eventsList.length > 0) {
-          setUpcomingEvents(eventsList);
+
+        const now = new Date();
+        const upcomingList = rawEvents.filter(e => !e.startDate || new Date(e.startDate) >= now);
+        const finalEvents = upcomingList.length > 0 ? upcomingList : rawEvents;
+        
+        if (finalEvents.length > 0) {
+          setUpcomingEvents(finalEvents);
         }
 
-        // 6. Fetch Development Works
-        const worksRes = await api.getWorks({ limit: 4 }).catch(() => []);
+        // 6. Fetch Development Works (All works visible in slider)
+        const worksRes = await api.getWorks({ limit: 100 }).catch(() => []);
         const worksList = Array.isArray(worksRes) ? worksRes : (worksRes?.data || []);
         if (worksList.length > 0) {
           setDevProjects(worksList);
         }
 
-        // 7. Fetch Photo Gallery
-        const galleryRes = await api.getGallery({ limit: 4 }).catch(() => []);
-        const galleryList = Array.isArray(galleryRes) ? galleryRes : (galleryRes?.data || []);
-        if (galleryList.length > 0) {
-          setGalleryPhotos(galleryList);
-        }
+        // 7. Fetch Photo Gallery Only (Strictly photos only, no videos)
+        const galleryRes = await api.getGallery({ type: 'photo', limit: 100 }).catch(() => []);
+        const galleryList = Array.isArray(galleryRes?.data?.data)
+          ? galleryRes.data.data
+          : (Array.isArray(galleryRes?.data)
+            ? galleryRes.data
+            : (Array.isArray(galleryRes?.items)
+              ? galleryRes.items
+              : (Array.isArray(galleryRes) ? galleryRes : [])));
+        const validGalleryPhotos = galleryList.filter(item => {
+          if (!item) return false;
+          // Strictly exclude video types and video URLs
+          if (item.type === 'video') return false;
+          const urlStr = String(item.imageUrl || item.url || item.image || item.mediaUrl || (typeof item === 'string' ? item : '')).toLowerCase();
+          if (urlStr.includes('youtube.com') || urlStr.includes('youtu.be') || urlStr.includes('vimeo.com') || urlStr.endsWith('.mp4') || urlStr.endsWith('.mov')) {
+            return false;
+          }
+          return Boolean(item.imageUrl || item.url || item.image || item.mediaUrl || (typeof item === 'string' && item.trim()));
+        });
+        setGalleryPhotos(validGalleryPhotos);
 
         // 8. Fetch About Leader
         const leaderRes = await api.getAboutLeader().catch(() => null);
@@ -297,6 +303,45 @@ export default function HomePage() {
       setCurrentSlide((prev) => (prev - 1 + displaySlides.length) % displaySlides.length);
     }
   };
+
+  const updatesSliderRef = useRef(null);
+  const eventsSliderRef = useRef(null);
+  const worksSliderRef = useRef(null);
+  const gallerySliderRef = useRef(null);
+
+  // Auto scroll effect for horizontal sliders
+  useEffect(() => {
+    if (isLoading) return;
+
+    const setupAutoScroll = (ref, step = 180, interval = 3000) => {
+      if (!ref.current) return null;
+      const el = ref.current;
+      const timer = setInterval(() => {
+        if (!el) return;
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        if (maxScroll <= 5) return; // No scroll needed if content fits
+        
+        if (el.scrollLeft + step >= maxScroll - 15) {
+          el.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          el.scrollBy({ left: step, behavior: 'smooth' });
+        }
+      }, interval);
+      return timer;
+    };
+
+    const t1 = setupAutoScroll(updatesSliderRef, 220, 3000);
+    const t2 = setupAutoScroll(eventsSliderRef, 190, 3200);
+    const t3 = setupAutoScroll(worksSliderRef, 180, 3400);
+    const t4 = setupAutoScroll(gallerySliderRef, 190, 3100);
+
+    return () => {
+      if (t1) clearInterval(t1);
+      if (t2) clearInterval(t2);
+      if (t3) clearInterval(t3);
+      if (t4) clearInterval(t4);
+    };
+  }, [isLoading, latestUpdates.length, upcomingEvents.length, devProjects.length, galleryPhotos.length]);
 
   useEffect(() => {
     if (displaySlides.length <= 1) return;
@@ -544,9 +589,16 @@ export default function HomePage() {
                 </button>
               </div>
               {latestUpdates.length > 0 ? (
-                <div className="flex flex-col gap-3">
+                <div 
+                  ref={updatesSliderRef}
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+                >
                   {latestUpdates.map(item => (
-                    <div key={item._id || item.id} onClick={() => navigate('/latest-updates')} className="flex gap-3 items-center bg-[#f8fafc] rounded-2xl p-3 cursor-pointer active:scale-[0.98] transition-transform border border-gray-100">
+                    <div 
+                      key={item._id || item.id} 
+                      onClick={() => navigate('/latest-updates')} 
+                      className="shrink-0 w-60 flex gap-3 items-center bg-[#f8fafc] rounded-2xl p-3 cursor-pointer active:scale-[0.98] transition-transform border border-gray-100 hover:border-gray-200"
+                    >
                       <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100">
                         <img
                           src={getMediaUrl(item.coverImage || item.imageUrl || item.img, '/event_jan_sabha.jpg')}
@@ -592,7 +644,10 @@ export default function HomePage() {
                 </button>
               </div>
               {upcomingEvents.length > 0 ? (
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                <div 
+                  ref={eventsSliderRef}
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+                >
                   {upcomingEvents.map(event => (
                     <div key={event._id || event.id} onClick={() => navigate(`/events/${event._id || event.id}`)} className="shrink-0 w-44 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform hover:border-orange-200">
                       <div className="w-full h-28 relative overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -613,7 +668,7 @@ export default function HomePage() {
                         ) : (
                           <div
                             className="w-full h-full flex items-center justify-center p-3"
-                            style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${primaryColor}35)` }}
+                            style={{ backgroundColor: `${primaryColor}20` }}
                           >
                             {currentLogo ? (
                               <img src={currentLogo} alt="Logo" className="w-10 h-10 object-contain opacity-70" />
@@ -624,12 +679,9 @@ export default function HomePage() {
                             )}
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none"></div>
-                        <div className="absolute bottom-2 left-3 right-2 pointer-events-none">
-                          <p className="text-white text-xs font-extrabold leading-tight line-clamp-1">{event.title}</p>
-                        </div>
                       </div>
-                      <div className="bg-white px-3 py-2.5 flex flex-col gap-0.5">
+                      <div className="bg-white px-3 py-2.5 flex flex-col gap-1">
+                        <p className="text-gray-900 text-xs font-extrabold leading-tight line-clamp-1">{event.title}</p>
                         <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-gray-500 truncate">
                           <svg className="w-3 h-3 shrink-0" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -669,7 +721,10 @@ export default function HomePage() {
                 </button>
               </div>
               {devProjects.length > 0 ? (
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                <div 
+                  ref={worksSliderRef}
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+                >
                   {devProjects.map(proj => (
                     <div key={proj._id || proj.id} onClick={() => navigate(`/works/${proj._id || proj.id}`)} className="shrink-0 w-40 rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer active:scale-[0.97] transition-transform">
                       <div className="w-full h-24 relative overflow-hidden bg-gray-100">
@@ -726,70 +781,80 @@ export default function HomePage() {
                   </button>
                 </div>
                 <div onClick={() => navigate('/polls')} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-pointer active:scale-[0.98] transition-transform">
-                  <p className="text-sm font-extrabold text-gray-900 mb-4 leading-snug">{activePoll.question}</p>
+                  <p className="text-sm font-extrabold text-gray-900 mb-3 leading-snug">{activePoll.question}</p>
                   
-                    <div className="flex flex-col gap-2.5">
-                      {(activePoll.options || []).map((opt, i) => {
-                        const optPercent = opt.percentage !== undefined ? opt.percentage : (opt.percent || 0);
-                        return (
-                          <div key={i} className="flex flex-col gap-1">
-                            <div className="flex justify-between text-xs font-bold text-gray-700">
-                              <span className="truncate">{opt.text}</span>
-                              <span style={{ color: primaryColor }}>{optPercent}%</span>
-                            </div>
-                            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
-                                  width: `${optPercent}%`
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="flex flex-col gap-2">
+                    {(activePoll.options || []).map((opt, i) => (
+                      <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                        <div 
+                          className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0"
+                          style={activePoll.userVoted || activePoll.hasVoted ? { borderColor: primaryColor } : {}}
+                        >
+                          {(activePoll.userVoted || activePoll.hasVoted) && (
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }}></div>
+                          )}
+                        </div>
+                        <span className="text-xs font-bold text-gray-800 truncate">{opt.text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px] font-bold text-gray-400">
+                    <span>{`${(activePoll.totalVotes || 0).toLocaleString()} ${t('totalVotes')}`}</span>
+                    <span style={{ color: primaryColor }}>{activePoll.userVoted || activePoll.hasVoted ? t('voted') : t('tapToVote')}</span>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="h-2 bg-[#f8fafc] my-5"></div>
-
             {/* Photo Gallery Preview */}
-            {galleryPhotos.length > 0 && (
-              <div className="px-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-extrabold text-[#1e293b]">{t('photoGallery')}</h2>
-                  <button
-                    onClick={() => navigate('/photo-gallery')}
-                    className="text-xs font-bold transition-opacity hover:opacity-80"
-                    style={{ color: secondaryColor }}
-                  >
-                    {t('viewAll')}
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {galleryPhotos.slice(0, 3).map((item, i) => (
-                    <div
-                      key={item._id || i}
+            {galleryPhotos && galleryPhotos.length > 0 && (
+              <>
+                <div className="h-2 bg-[#f8fafc] my-5"></div>
+                <div className="px-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-base font-extrabold text-[#1e293b]">{t('photoGallery')}</h2>
+                    <button
                       onClick={() => navigate('/photo-gallery')}
-                      className={`rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-xs relative flex items-center justify-center ${i === 0 ? 'col-span-2 h-44' : 'h-32'}`}
+                      className="text-xs font-bold transition-opacity hover:opacity-80"
+                      style={{ color: secondaryColor }}
                     >
-                      <img
-                        src={getMediaUrl(item.imageUrl || item.url || item)}
-                        alt={item.title || "Gallery"}
-                        className="w-full h-full object-contain p-2"
-                      />
-                      {item.title && (
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent p-2.5 pt-6 text-white">
-                          <p className="text-xs font-bold truncate drop-shadow">{item.title}</p>
+                      {t('viewAll')}
+                    </button>
+                  </div>
+                  <div 
+                    ref={gallerySliderRef}
+                    className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+                  >
+                    {galleryPhotos.map((item, i) => {
+                      const imgSrc = getMediaUrl(item.imageUrl || item.url || item.image || item.mediaUrl || item);
+                      return (
+                        <div
+                          key={item._id || item.id || i}
+                          onClick={() => navigate('/photo-gallery')}
+                          className="shrink-0 w-44 h-36 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all bg-slate-100 border border-gray-100 shadow-xs relative flex flex-col"
+                        >
+                          <div className="w-full h-full relative overflow-hidden bg-slate-100 flex items-center justify-center">
+                            <img
+                              src={imgSrc}
+                              alt={item.title || "Gallery Photo"}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                          {item.title && (
+                            <div className="bg-white/95 px-3 py-1.5 border-t border-gray-100">
+                              <p className="text-xs font-bold text-gray-800 truncate">{item.title}</p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             <div className="h-2 bg-[#f8fafc] my-5"></div>
@@ -799,7 +864,7 @@ export default function HomePage() {
               <div
                 className="border rounded-2xl p-4 relative overflow-hidden shadow-sm"
                 style={{
-                  background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}15)`,
+                  backgroundColor: '#ffffff',
                   borderColor: `${primaryColor}30`
                 }}
               >
@@ -854,52 +919,100 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="h-2 bg-[#f8fafc] my-5"></div>
+            {/* Social Media & Contact Helpline Bar (Render dynamically only if present in database) */}
+            {(() => {
+              const leaderPhone = (aboutLeader?.contactInfo?.phone || aboutLeader?.contactInfo?.mobile || tenantConfig?.tenant?.mobileNumber || tenantConfig?.branding?.contactNumber || '').trim();
+              const rawWhatsapp = (aboutLeader?.socialLinks?.whatsapp || aboutLeader?.contactInfo?.whatsapp || tenantConfig?.branding?.socialLinks?.whatsapp || '').trim();
+              const whatsappNumber = rawWhatsapp || (leaderPhone ? leaderPhone : '');
+              const whatsappUrl = whatsappNumber ? (whatsappNumber.startsWith('http') ? whatsappNumber : `https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`) : null;
 
-            {/* Social Media & Contact Helpline Bar */}
-            <div className="px-5">
-              <h2 className="text-base font-extrabold text-[#1e293b] mb-3">{t('connectHelpline')}</h2>
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <a href="tel:1800123456" className="flex items-center gap-2.5 bg-green-50 border border-green-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
-                  <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[0.65rem] font-bold text-gray-500">{t('tollFree')}</p>
-                    <p className="text-xs font-extrabold text-gray-900">1800-123-456</p>
-                  </div>
-                </a>
+              const twitterUrl = (aboutLeader?.socialLinks?.twitter || aboutLeader?.socialLinks?.x || tenantConfig?.branding?.socialLinks?.twitter || '').trim();
+              const facebookUrl = (aboutLeader?.socialLinks?.facebook || tenantConfig?.branding?.socialLinks?.facebook || '').trim();
+              const instagramUrl = (aboutLeader?.socialLinks?.instagram || tenantConfig?.branding?.socialLinks?.instagram || '').trim();
+              const youtubeUrl = (aboutLeader?.socialLinks?.youtube || tenantConfig?.branding?.socialLinks?.youtube || '').trim();
 
-                <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform">
-                  <div className="w-8 h-8 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0 font-black text-xs">
-                    WA
-                  </div>
-                  <div>
-                    <p className="text-[0.65rem] font-bold text-gray-500">{t('whatsappHelpdesk')}</p>
-                    <p className="text-xs font-extrabold text-gray-900">+91 9876543210</p>
-                  </div>
-                </a>
-              </div>
+              const activeSocialLinks = [
+                twitterUrl ? { name: 'X', url: twitterUrl, color: 'bg-black text-white hover:bg-neutral-800', icon: <FaXTwitter className="w-3.5 h-3.5" /> } : null,
+                facebookUrl ? { name: 'FB', url: facebookUrl, color: 'bg-[#1877F2] text-white hover:bg-[#166fe5]', icon: <FaFacebookF className="w-3.5 h-3.5" /> } : null,
+                instagramUrl ? { name: 'IG', url: instagramUrl, color: 'bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 text-white hover:opacity-90', icon: <FaInstagram className="w-3.5 h-3.5" /> } : null,
+                youtubeUrl ? { name: 'YT', url: youtubeUrl, color: 'bg-[#FF0000] text-white hover:bg-[#cc0000]', icon: <FaYoutube className="w-3.5 h-3.5" /> } : null,
+              ].filter(Boolean);
 
-              {/* Social Channels Row */}
-              <div className="flex items-center justify-between bg-[#f8fafc] border border-gray-200/80 rounded-xl p-3">
-                <span className="text-xs font-bold text-gray-700">{t('followLeader')}</span>
-                <div className="flex items-center gap-2">
-                  {[
-                    { name: 'X', color: 'bg-black text-white', icon: <FaXTwitter className="w-3.5 h-3.5" /> },
-                    { name: 'FB', color: 'bg-[#1877F2] text-white', icon: <FaFacebookF className="w-3.5 h-3.5" /> },
-                    { name: 'IG', color: 'bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 text-white', icon: <FaInstagram className="w-3.5 h-3.5" /> },
-                    { name: 'YT', color: 'bg-[#FF0000] text-white', icon: <FaYoutube className="w-3.5 h-3.5" /> }
-                  ].map((s, i) => (
-                    <button key={i} className={`w-7 h-7 rounded-lg ${s.color} flex items-center justify-center shadow-sm active:scale-90 transition-transform`}>
-                      {s.icon}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+              const hasHelpline = Boolean(leaderPhone || whatsappUrl);
+              const hasSocials = activeSocialLinks.length > 0;
+              const showConnectSection = hasHelpline || hasSocials;
+
+              if (!showConnectSection) return null;
+
+              return (
+                <>
+                  <div className="h-2 bg-[#f8fafc] my-5"></div>
+
+                  <div className="px-5">
+                    <h2 className="text-base font-extrabold text-[#1e293b] mb-3">{t('connectHelpline')}</h2>
+                    
+                    {hasHelpline && (
+                      <div className={`grid ${leaderPhone && whatsappUrl ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-3`}>
+                        {leaderPhone && (
+                          <a 
+                            href={`tel:${leaderPhone}`} 
+                            className="flex items-center gap-2.5 bg-green-50 border border-green-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform cursor-pointer"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                              </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[0.65rem] font-bold text-gray-500 uppercase">{t('tollFree') || 'Helpline'}</p>
+                              <p className="text-xs font-extrabold text-gray-900 truncate">{leaderPhone}</p>
+                            </div>
+                          </a>
+                        )}
+
+                        {whatsappUrl && (
+                          <a 
+                            href={whatsappUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200/70 p-3 rounded-xl active:scale-[0.98] transition-transform cursor-pointer"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0 font-black text-xs shadow-xs">
+                              WA
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[0.65rem] font-bold text-gray-500 uppercase">{t('whatsappHelpdesk') || 'WhatsApp'}</p>
+                              <p className="text-xs font-extrabold text-gray-900 truncate">{whatsappNumber}</p>
+                            </div>
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Social Channels Row */}
+                    {hasSocials && (
+                      <div className="flex items-center justify-between bg-[#f8fafc] border border-gray-200/80 rounded-xl p-3">
+                        <span className="text-xs font-bold text-gray-700">{t('followLeader')}</span>
+                        <div className="flex items-center gap-2">
+                          {activeSocialLinks.map((s, i) => (
+                            <a 
+                              key={i} 
+                              href={s.url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className={`w-7 h-7 rounded-lg ${s.color} flex items-center justify-center shadow-sm active:scale-90 transition-transform cursor-pointer`}
+                              title={s.name}
+                            >
+                              {s.icon}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
 
             <div className="h-2 bg-[#f8fafc] my-5"></div>
 

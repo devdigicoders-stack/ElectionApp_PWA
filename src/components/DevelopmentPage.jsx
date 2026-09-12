@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
@@ -6,6 +6,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getMediaUrl } from '../utils/mediaUrl';
 
 export default function DevelopmentPage() {
   const navigate = useNavigate();
@@ -14,9 +15,9 @@ export default function DevelopmentPage() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [works, setWorks] = useState([]);
+  const [categories, setCategories] = useState(['All', 'Road', 'Education', 'Health', 'Electricity', 'Water', 'Infrastructure']);
   const [isLoading, setIsLoading] = useState(true);
-
-  const filters = ['All', 'Road', 'Education', 'Health', 'Electricity', 'Water', 'Infrastructure'];
+  const tabsRef = useRef(null);
 
   useEffect(() => {
     const fetchWorks = async () => {
@@ -29,6 +30,14 @@ export default function DevelopmentPage() {
         const res = await api.getWorks(params).catch(() => []);
         const list = Array.isArray(res) ? res : (res?.data || []);
         setWorks(list);
+
+        // Dynamically collect categories
+        if (list.length > 0 && activeFilter === 'All') {
+          const dynamicCats = ['All', ...new Set(list.map(w => w.category).filter(Boolean))];
+          if (dynamicCats.length > 1) {
+            setCategories(dynamicCats);
+          }
+        }
       } catch (err) {
         console.warn('Error fetching works:', err);
       } finally {
@@ -38,6 +47,25 @@ export default function DevelopmentPage() {
 
     fetchWorks();
   }, [activeFilter]);
+
+  // Auto-scroll horizontal category tabs so next tabs become visible
+  useEffect(() => {
+    if (!tabsRef.current || categories.length <= 3) return;
+    const el = tabsRef.current;
+    const step = 110;
+    const timer = setInterval(() => {
+      if (!el) return;
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll <= 5) return;
+      if (el.scrollLeft + step >= maxScroll - 10) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: step, behavior: 'smooth' });
+      }
+    }, 2800);
+
+    return () => clearInterval(timer);
+  }, [categories.length]);
 
   const filteredWorks = works.filter((w) => {
     if (!searchQuery.trim()) return true;
@@ -99,9 +127,12 @@ export default function DevelopmentPage() {
             />
           </div>
 
-          {/* Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar -mx-5 px-5 pb-1">
-            {filters.map(filter => (
+          {/* Filter Chips with Auto Slide */}
+          <div 
+            ref={tabsRef}
+            className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1 scroll-smooth"
+          >
+            {categories.map(filter => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
@@ -125,6 +156,14 @@ export default function DevelopmentPage() {
               {filteredWorks.map((work) => {
                 const badge = getStatusBadge(work.status);
                 const workId = work._id || work.id;
+                const rawImg = (Array.isArray(work.images) && work.images.length > 0 ? work.images[0] : null) ||
+                  work.coverImageUrl ||
+                  work.imageUrl ||
+                  work.image ||
+                  work.coverImage ||
+                  null;
+                const workImage = rawImg ? getMediaUrl(rawImg) : null;
+
                 return (
                   <div 
                     key={workId} 
@@ -132,12 +171,23 @@ export default function DevelopmentPage() {
                     className="bg-white rounded-2xl p-3.5 flex gap-4 shadow-sm border border-gray-100 items-center cursor-pointer transition-transform active:scale-[0.98] hover:shadow-md hover:border-gray-300"
                   >
                     {/* Image */}
-                    <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative">
-                      <img 
-                        src={work.coverImageUrl || work.imageUrl || work.image || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400'} 
-                        alt={work.title} 
-                        className="w-full h-full object-cover" 
-                      />
+                    <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative flex items-center justify-center">
+                      {workImage ? (
+                        <img 
+                          src={workImage} 
+                          alt={work.title} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className={`w-full h-full items-center justify-center flex-col text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200 ${workImage ? 'hidden' : 'flex'}`}
+                      >
+                        <span className="text-2xl">🏗️</span>
+                      </div>
                     </div>
                     
                     {/* Details */}

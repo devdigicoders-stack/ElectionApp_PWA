@@ -6,6 +6,7 @@ import { eventsStorage } from '../services/eventsData';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { getMediaUrl } from '../utils/mediaUrl';
+import { shareContent } from '../utils/shareAndDownload';
 import { 
   HiCalendarDays, 
   HiMapPin, 
@@ -133,16 +134,11 @@ export default function EventDetailsPage() {
   };
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: event.title,
-        text: `Join us at ${event.title} (${event.eventType}) on ${event.date} at ${event.location}!`,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success('Event link copied to clipboard!');
-    }
+    shareContent({
+      title: event.title,
+      text: `Join us at ${event.title} (${event.eventType}) on ${event.date} at ${event.location}!`,
+      url: window.location.href,
+    });
   };
 
   return (

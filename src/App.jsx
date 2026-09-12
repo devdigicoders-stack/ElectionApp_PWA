@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -18,6 +18,7 @@ import SplashPage from './components/SplashPage';
 import OnboardingPage from './components/OnboardingPage';
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
+import { setupForegroundFcmListener, syncFcmTokenIfPermitted } from './services/firebase';
 
 // Route helper to show splash on app load
 const InitialLaunch = () => {
@@ -53,7 +54,23 @@ const Placeholder = ({ name }) => (
 );
 
 export default function App() {
+  useEffect(() => {
+    // 1. Synchronize token if permission was previously granted
+    syncFcmTokenIfPermitted();
+
+    // 2. Setup foreground push notification handler
+    let unsubscribe = () => {};
+    setupForegroundFcmListener().then((unsub) => {
+      if (typeof unsub === 'function') unsubscribe = unsub;
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   return (
+
     <TenantProvider>
       <LanguageProvider>
         <Router>
