@@ -334,20 +334,20 @@ export default function DevelopmentPage() {
                     </button>
 
                     {showBlockDropdown && (
-                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1.5 animate-fade-in max-h-60">
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2.5 flex flex-col gap-2 animate-fade-in max-h-72 ring-1 ring-black/5">
                         <div className="relative">
-                          <HiMagnifyingGlass className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <HiMagnifyingGlass className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             placeholder="ब्लॉक खोजें (Search)..."
                             value={blockSearch}
                             onChange={(e) => setBlockSearch(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all leading-normal"
                             autoFocus
                           />
                         </div>
-                        <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 pr-1">
+                        <div className="overflow-y-auto max-h-48 flex flex-col gap-1 pr-1">
                           <button
                             type="button"
                             onClick={() => {
@@ -357,8 +357,8 @@ export default function DevelopmentPage() {
                               setShowBlockDropdown(false);
                               setBlockSearch('');
                             }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all ${
-                              !selectedBlockId ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
+                            className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-all leading-relaxed ${
+                              !selectedBlockId ? 'bg-orange-50 text-orange-700 font-extrabold' : 'text-gray-700 hover:bg-gray-50'
                             }`}
                           >
                             सभी ब्लॉक (All Blocks)
@@ -374,9 +374,9 @@ export default function DevelopmentPage() {
                                 setShowBlockDropdown(false);
                                 setBlockSearch('');
                               }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all truncate ${
+                              className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-all leading-relaxed whitespace-normal break-words ${
                                 String(b._id || b.id) === String(selectedBlockId)
-                                  ? 'bg-orange-50 text-orange-700'
+                                  ? 'bg-orange-50 text-orange-700 font-extrabold'
                                   : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
@@ -384,7 +384,7 @@ export default function DevelopmentPage() {
                             </button>
                           ))}
                           {blockOptions.length === 0 && (
-                            <div className="text-[11px] text-gray-400 text-center py-2">कोई ब्लॉक नहीं मिला</div>
+                            <div className="text-xs text-gray-400 text-center py-3 font-medium">कोई ब्लॉक नहीं मिला</div>
                           )}
                         </div>
                       </div>
@@ -419,20 +419,20 @@ export default function DevelopmentPage() {
                     </button>
 
                     {showPanchayatDropdown && selectedBlockId && (
-                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1.5 animate-fade-in max-h-60">
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2.5 flex flex-col gap-2 animate-fade-in max-h-72 ring-1 ring-black/5">
                         <div className="relative">
-                          <HiMagnifyingGlass className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <HiMagnifyingGlass className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             placeholder="पंचायत खोजें (Search)..."
                             value={panchayatSearch}
                             onChange={(e) => setPanchayatSearch(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all leading-normal"
                             autoFocus
                           />
                         </div>
-                        <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 pr-1">
+                        <div className="overflow-y-auto max-h-48 flex flex-col gap-1 pr-1">
                           <button
                             type="button"
                             onClick={() => {
@@ -441,8 +441,8 @@ export default function DevelopmentPage() {
                               setShowPanchayatDropdown(false);
                               setPanchayatSearch('');
                             }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all ${
-                              !selectedPanchayatId ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
+                            className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-all leading-relaxed ${
+                              !selectedPanchayatId ? 'bg-orange-50 text-orange-700 font-extrabold' : 'text-gray-700 hover:bg-gray-50'
                             }`}
                           >
                             सभी ग्राम पंचायत (All)
@@ -457,9 +457,9 @@ export default function DevelopmentPage() {
                                 setShowPanchayatDropdown(false);
                                 setPanchayatSearch('');
                               }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all truncate ${
+                              className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-all leading-relaxed whitespace-normal break-words ${
                                 String(p._id || p.id) === String(selectedPanchayatId)
-                                  ? 'bg-orange-50 text-orange-700'
+                                  ? 'bg-orange-50 text-orange-700 font-extrabold'
                                   : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
@@ -467,7 +467,7 @@ export default function DevelopmentPage() {
                             </button>
                           ))}
                           {panchayatOptions.length === 0 && (
-                            <div className="text-[11px] text-gray-400 text-center py-2">कोई पंचायत नहीं मिली</div>
+                            <div className="text-xs text-gray-400 text-center py-3 font-medium">कोई पंचायत नहीं मिली</div>
                           )}
                         </div>
                       </div>
@@ -500,20 +500,20 @@ export default function DevelopmentPage() {
                     </button>
 
                     {showVillageDropdown && selectedPanchayatId && (
-                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1.5 animate-fade-in max-h-60">
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2.5 flex flex-col gap-2 animate-fade-in max-h-72 ring-1 ring-black/5">
                         <div className="relative">
-                          <HiMagnifyingGlass className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <HiMagnifyingGlass className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             placeholder="गांव खोजें (Search)..."
                             value={villageSearch}
                             onChange={(e) => setVillageSearch(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all leading-normal"
                             autoFocus
                           />
                         </div>
-                        <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 pr-1">
+                        <div className="overflow-y-auto max-h-48 flex flex-col gap-1 pr-1">
                           <button
                             type="button"
                             onClick={() => {
@@ -521,8 +521,8 @@ export default function DevelopmentPage() {
                               setShowVillageDropdown(false);
                               setVillageSearch('');
                             }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all ${
-                              !selectedVillageId ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
+                            className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-all leading-relaxed ${
+                              !selectedVillageId ? 'bg-orange-50 text-orange-700 font-extrabold' : 'text-gray-700 hover:bg-gray-50'
                             }`}
                           >
                             सभी गांव (All Villages)
@@ -536,9 +536,9 @@ export default function DevelopmentPage() {
                                 setShowVillageDropdown(false);
                                 setVillageSearch('');
                               }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all truncate ${
+                              className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-all leading-relaxed whitespace-normal break-words ${
                                 String(v._id || v.id) === String(selectedVillageId)
-                                  ? 'bg-orange-50 text-orange-700'
+                                  ? 'bg-orange-50 text-orange-700 font-extrabold'
                                   : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
@@ -546,7 +546,7 @@ export default function DevelopmentPage() {
                             </button>
                           ))}
                           {villageOptions.length === 0 && (
-                            <div className="text-[11px] text-gray-400 text-center py-2">कोई गांव नहीं मिला</div>
+                            <div className="text-xs text-gray-400 text-center py-3 font-medium">कोई गांव नहीं मिला</div>
                           )}
                         </div>
                       </div>
