@@ -30,6 +30,9 @@ export default function DevelopmentPage() {
   const [selectedPanchayatId, setSelectedPanchayatId] = useState('');
   const [selectedVillageId, setSelectedVillageId] = useState('');
   const [showAreaFilters, setShowAreaFilters] = useState(false);
+  const [blockSearch, setBlockSearch] = useState('');
+  const [panchayatSearch, setPanchayatSearch] = useState('');
+  const [villageSearch, setVillageSearch] = useState('');
 
   useEffect(() => {
     const cat = location.state?.category || new URLSearchParams(location.search).get('category');
@@ -64,23 +67,34 @@ export default function DevelopmentPage() {
   }, []);
 
   // Cascading options
-  const blockOptions = areaTreeData.tree || [];
+  const blockOptions = (areaTreeData.tree || []).filter(b => 
+    !blockSearch.trim() || (b.name || '').toLowerCase().includes(blockSearch.toLowerCase())
+  );
   
-  const currentBlockNode = blockOptions.find(b => String(b._id || b.id) === String(selectedBlockId));
-  const panchayatOptions = currentBlockNode?.children || [];
+  const currentBlockNode = (areaTreeData.tree || []).find(b => String(b._id || b.id) === String(selectedBlockId));
+  const rawPanchayatOptions = currentBlockNode?.children || [];
+  const panchayatOptions = rawPanchayatOptions.filter(p => 
+    !panchayatSearch.trim() || (p.name || '').toLowerCase().includes(panchayatSearch.toLowerCase())
+  );
 
-  const currentPanchayatNode = panchayatOptions.find(p => String(p._id || p.id) === String(selectedPanchayatId));
-  const villageOptions = currentPanchayatNode?.children || [];
+  const currentPanchayatNode = rawPanchayatOptions.find(p => String(p._id || p.id) === String(selectedPanchayatId));
+  const rawVillageOptions = currentPanchayatNode?.children || [];
+  const villageOptions = rawVillageOptions.filter(v => 
+    !villageSearch.trim() || (v.name || '').toLowerCase().includes(villageSearch.toLowerCase())
+  );
 
   const handleBlockChange = (e) => {
     setSelectedBlockId(e.target.value);
     setSelectedPanchayatId('');
     setSelectedVillageId('');
+    setPanchayatSearch('');
+    setVillageSearch('');
   };
 
   const handlePanchayatChange = (e) => {
     setSelectedPanchayatId(e.target.value);
     setSelectedVillageId('');
+    setVillageSearch('');
   };
 
   const handleVillageChange = (e) => {
@@ -91,6 +105,9 @@ export default function DevelopmentPage() {
     setSelectedBlockId('');
     setSelectedPanchayatId('');
     setSelectedVillageId('');
+    setBlockSearch('');
+    setPanchayatSearch('');
+    setVillageSearch('');
   };
 
   const isAreaFilterActive = Boolean(selectedBlockId || selectedPanchayatId || selectedVillageId);
@@ -292,7 +309,7 @@ export default function DevelopmentPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* 1. Block Dropdown */}
+                {/* 1. Block Dropdown with Search */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                     1. ब्लॉक (Block)
@@ -312,9 +329,19 @@ export default function DevelopmentPage() {
                     </select>
                     <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
+                  {/* Quick Block Search Input */}
+                  {(areaTreeData.tree || []).length > 3 && (
+                    <input
+                      type="text"
+                      placeholder="ब्लॉक खोजें..."
+                      value={blockSearch}
+                      onChange={(e) => setBlockSearch(e.target.value)}
+                      className="w-full text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 outline-none focus:border-orange-400 transition-all placeholder:text-gray-400"
+                    />
+                  )}
                 </div>
 
-                {/* 2. Gram Panchayat Dropdown */}
+                {/* 2. Gram Panchayat Dropdown with Search */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                     2. ग्राम पंचायत (Panchayat)
@@ -323,7 +350,7 @@ export default function DevelopmentPage() {
                     <select
                       value={selectedPanchayatId}
                       onChange={handlePanchayatChange}
-                      disabled={!selectedBlockId || panchayatOptions.length === 0}
+                      disabled={!selectedBlockId || rawPanchayatOptions.length === 0}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
                     >
                       <option value="">
@@ -337,9 +364,19 @@ export default function DevelopmentPage() {
                     </select>
                     <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
+                  {/* Quick Panchayat Search Input */}
+                  {selectedBlockId && rawPanchayatOptions.length > 3 && (
+                    <input
+                      type="text"
+                      placeholder="पंचायत खोजें..."
+                      value={panchayatSearch}
+                      onChange={(e) => setPanchayatSearch(e.target.value)}
+                      className="w-full text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 outline-none focus:border-orange-400 transition-all placeholder:text-gray-400"
+                    />
+                  )}
                 </div>
 
-                {/* 3. Village Dropdown */}
+                {/* 3. Village Dropdown with Search */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                     3. ग्राम / गांव (Village)
@@ -348,7 +385,7 @@ export default function DevelopmentPage() {
                     <select
                       value={selectedVillageId}
                       onChange={handleVillageChange}
-                      disabled={!selectedPanchayatId || villageOptions.length === 0}
+                      disabled={!selectedPanchayatId || rawVillageOptions.length === 0}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
                     >
                       <option value="">
@@ -362,6 +399,16 @@ export default function DevelopmentPage() {
                     </select>
                     <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
+                  {/* Quick Village Search Input */}
+                  {selectedPanchayatId && rawVillageOptions.length > 2 && (
+                    <input
+                      type="text"
+                      placeholder="गांव खोजें..."
+                      value={villageSearch}
+                      onChange={(e) => setVillageSearch(e.target.value)}
+                      className="w-full text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 outline-none focus:border-orange-400 transition-all placeholder:text-gray-400"
+                    />
+                  )}
                 </div>
               </div>
 
