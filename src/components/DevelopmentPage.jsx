@@ -480,7 +480,7 @@ export default function DevelopmentPage() {
                         {work.category || 'Development'}
                       </span>
                       <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{work.title}</h3>
-                      <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{w.areaId?.name || w.area?.name || w.location || 'Local Area'}</p>
+                      <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.areaId?.name || work.area?.name || work.location || 'Local Area'}</p>
                       
                       {/* Badge */}
                       <div className="mt-auto">
