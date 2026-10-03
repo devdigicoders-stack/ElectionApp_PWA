@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { HiArrowLeft } from 'react-icons/hi2';
+import { HiArrowLeft, HiMapPin, HiXMark, HiChevronDown, HiFunnel } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
 import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
@@ -24,12 +24,76 @@ export default function DevelopmentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const tabsRef = useRef(null);
 
+  // Area Hierarchy State (Block -> Gram Panchayat -> Village)
+  const [areaTreeData, setAreaTreeData] = useState({ levels: [], tree: [] });
+  const [selectedBlockId, setSelectedBlockId] = useState('');
+  const [selectedPanchayatId, setSelectedPanchayatId] = useState('');
+  const [selectedVillageId, setSelectedVillageId] = useState('');
+  const [showAreaFilters, setShowAreaFilters] = useState(false);
+
   useEffect(() => {
     const cat = location.state?.category || new URLSearchParams(location.search).get('category');
     if (cat) {
       setActiveFilter(cat);
     }
   }, [location.state, location.search]);
+
+  // Fetch Area Tree for cascading hierarchy filter
+  useEffect(() => {
+    const fetchAreaTree = async () => {
+      try {
+        const areaRes = await api.getAreaTree().catch(() => null);
+        if (areaRes) {
+          const rawLevels = areaRes.levels || [];
+          const filteredLevels = rawLevels.filter(lvl => {
+            const name = String(lvl?.name || lvl?.type || '').toLowerCase();
+            return !name.includes('ward') && !name.includes('वार्ड');
+          });
+          setAreaTreeData({
+            ...areaRes,
+            levels: filteredLevels,
+            tree: areaRes.tree || []
+          });
+        }
+      } catch (err) {
+        console.warn('Error loading area tree in DevelopmentPage:', err);
+      }
+    };
+
+    fetchAreaTree();
+  }, []);
+
+  // Cascading options
+  const blockOptions = areaTreeData.tree || [];
+  
+  const currentBlockNode = blockOptions.find(b => String(b._id || b.id) === String(selectedBlockId));
+  const panchayatOptions = currentBlockNode?.children || [];
+
+  const currentPanchayatNode = panchayatOptions.find(p => String(p._id || p.id) === String(selectedPanchayatId));
+  const villageOptions = currentPanchayatNode?.children || [];
+
+  const handleBlockChange = (e) => {
+    setSelectedBlockId(e.target.value);
+    setSelectedPanchayatId('');
+    setSelectedVillageId('');
+  };
+
+  const handlePanchayatChange = (e) => {
+    setSelectedPanchayatId(e.target.value);
+    setSelectedVillageId('');
+  };
+
+  const handleVillageChange = (e) => {
+    setSelectedVillageId(e.target.value);
+  };
+
+  const clearAreaFilter = () => {
+    setSelectedBlockId('');
+    setSelectedPanchayatId('');
+    setSelectedVillageId('');
+  };
+
+  const isAreaFilterActive = Boolean(selectedBlockId || selectedPanchayatId || selectedVillageId);
 
   useEffect(() => {
     const fetchWorks = async () => {
@@ -85,15 +149,75 @@ export default function DevelopmentPage() {
     return () => clearInterval(timer);
   }, [categories.length]);
 
+  // Combined Area + Category + Search query filtering
   const filteredWorks = works.filter((w) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (w.title && w.title.toLowerCase().includes(q)) ||
-      (w.description && w.description.toLowerCase().includes(q)) ||
-      (w.area?.name && w.area.name.toLowerCase().includes(q)) ||
-      (w.category && w.category.toLowerCase().includes(q))
-    );
+    // 1. Search Query Match
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const areaObjName = w.areaId?.name || w.area?.name || '';
+      const textMatch = (
+        (w.title && w.title.toLowerCase().includes(q)) ||
+        (w.description && w.description.toLowerCase().includes(q)) ||
+        (areaObjName && areaObjName.toLowerCase().includes(q)) ||
+        (w.location && w.location.toLowerCase().includes(q)) ||
+        (w.category && w.category.toLowerCase().includes(q))
+      );
+      if (!textMatch) return false;
+    }
+
+    // 2. Area Hierarchy Filter Match
+    if (isAreaFilterActive) {
+      const itemAreaId = String(w.areaId?._id || w.areaId?.id || (typeof w.areaId === 'string' ? w.areaId : '') || w.area?._id || w.area?.id || w.targetArea?._id || '');
+      const areaObjName = (w.areaId?.name || w.area?.name || w.targetArea?.name || w.areaName || '').toLowerCase();
+      const locationText = (w.location || '').toLowerCase();
+      const titleText = (w.title || '').toLowerCase();
+      const combinedLocation = `${areaObjName} ${locationText} ${titleText}`;
+
+      // If Village is selected: Match Village ID or Village Name
+      if (selectedVillageId) {
+        const villageNode = villageOptions.find(v => String(v._id || v.id) === String(selectedVillageId));
+        const villageName = (villageNode?.name || '').toLowerCase();
+        const idMatches = itemAreaId && itemAreaId === String(selectedVillageId);
+        const nameMatches = villageName && combinedLocation.includes(villageName);
+        if (!idMatches && !nameMatches) return false;
+      }
+      // Else if Panchayat is selected: Match Panchayat ID, Panchayat Name or any child Village ID/name
+      else if (selectedPanchayatId) {
+        const panchayatNode = currentPanchayatNode;
+        const panchayatName = (panchayatNode?.name || '').toLowerCase();
+        const childVillageIds = (panchayatNode?.children || []).map(v => String(v._id || v.id));
+        const childVillageNames = (panchayatNode?.children || []).map(v => (v.name || '').toLowerCase()).filter(Boolean);
+
+        const idMatches = (itemAreaId && itemAreaId === String(selectedPanchayatId)) || childVillageIds.includes(itemAreaId);
+        const nameMatches = (panchayatName && combinedLocation.includes(panchayatName)) || childVillageNames.some(vn => combinedLocation.includes(vn));
+
+        if (!idMatches && !nameMatches) return false;
+      }
+      // Else if Block is selected: Match Block ID, Block Name or any child Panchayat / Village
+      else if (selectedBlockId) {
+        const blockNode = currentBlockNode;
+        const blockName = (blockNode?.name || '').toLowerCase();
+        
+        // Collect all descendant IDs and names
+        const descendantIds = [];
+        const descendantNames = [];
+        (blockNode?.children || []).forEach(p => {
+          descendantIds.push(String(p._id || p.id));
+          if (p.name) descendantNames.push(p.name.toLowerCase());
+          (p.children || []).forEach(v => {
+            descendantIds.push(String(v._id || v.id));
+            if (v.name) descendantNames.push(v.name.toLowerCase());
+          });
+        });
+
+        const idMatches = (itemAreaId && itemAreaId === String(selectedBlockId)) || descendantIds.includes(itemAreaId);
+        const nameMatches = (blockName && combinedLocation.includes(blockName)) || descendantNames.some(dn => combinedLocation.includes(dn));
+
+        if (!idMatches && !nameMatches) return false;
+      }
+    }
+
+    return true;
   });
 
   const getStatusBadge = (status) => {
@@ -123,10 +247,142 @@ export default function DevelopmentPage() {
             {t('worksTitle')}
           </h1>
         </div>
+
+        {/* Filter Toggle Button */}
+        <button
+          onClick={() => setShowAreaFilters(prev => !prev)}
+          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all active:scale-95 shrink-0 ${
+            isAreaFilterActive || showAreaFilters
+              ? 'bg-orange-50 text-orange-700 border-orange-200 shadow-xs'
+              : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+          }`}
+          style={isAreaFilterActive ? { borderColor: primaryColor, color: primaryColor } : {}}
+        >
+          <HiFunnel className="w-3.5 h-3.5" />
+          <span>{isAreaFilterActive ? 'Filter Active' : 'Area Filter'}</span>
+          {isAreaFilterActive && (
+            <span 
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: primaryColor }}
+            />
+          )}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto w-full relative">
-        <div className="p-5 flex flex-col gap-5">
+        <div className="p-4 flex flex-col gap-4">
+          
+          {/* Area Hierarchy Filter Box (Block -> Gram Panchayat -> Village) */}
+          {(showAreaFilters || isAreaFilterActive) && (
+            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-black text-gray-900">
+                  <HiMapPin className="w-4 h-4" style={{ color: primaryColor }} />
+                  <span>क्षेत्र अनुसार फ़िल्टर करें (Area Filter)</span>
+                </div>
+                {isAreaFilterActive && (
+                  <button
+                    onClick={clearAreaFilter}
+                    className="flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 active:scale-95"
+                  >
+                    <HiXMark className="w-3.5 h-3.5" />
+                    <span>फ़िल्टर हटाएं (Reset)</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. Block Dropdown */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                    1. ब्लॉक (Block)
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedBlockId}
+                      onChange={handleBlockChange}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 cursor-pointer"
+                    >
+                      <option value="">सभी ब्लॉक (All Blocks)</option>
+                      {blockOptions.map(b => (
+                        <option key={b._id || b.id} value={b._id || b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                    <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* 2. Gram Panchayat Dropdown */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                    2. ग्राम पंचायत (Panchayat)
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedPanchayatId}
+                      onChange={handlePanchayatChange}
+                      disabled={!selectedBlockId || panchayatOptions.length === 0}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
+                    >
+                      <option value="">
+                        {!selectedBlockId ? 'पहले ब्लॉक चुनें' : 'सभी ग्राम पंचायत (All)'}
+                      </option>
+                      {panchayatOptions.map(p => (
+                        <option key={p._id || p.id} value={p._id || p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* 3. Village Dropdown */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                    3. ग्राम / गांव (Village)
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedVillageId}
+                      onChange={handleVillageChange}
+                      disabled={!selectedPanchayatId || villageOptions.length === 0}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
+                    >
+                      <option value="">
+                        {!selectedPanchayatId ? 'पहले पंचायत चुनें' : 'सभी गांव (All Villages)'}
+                      </option>
+                      {villageOptions.map(v => (
+                        <option key={v._id || v.id} value={v._id || v.id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                    <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Selection Breadcrumb summary */}
+              {isAreaFilterActive && (
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
+                  <span className="font-bold text-gray-900">चयनित क्षेत्र:</span>
+                  <span>
+                    {[
+                      currentBlockNode?.name,
+                      currentPanchayatNode?.name,
+                      villageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name
+                    ].filter(Boolean).join(' ➔ ')}
+                  </span>
+                  <span className="ml-auto font-black" style={{ color: primaryColor }}>
+                    ({filteredWorks.length} कार्य मिले)
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Search Bar */}
           <div className="relative w-full">
@@ -148,7 +404,7 @@ export default function DevelopmentPage() {
           {/* Filter Chips with Auto Slide */}
           <div 
             ref={tabsRef}
-            className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1 scroll-smooth"
+            className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1 scroll-smooth"
           >
             {categories.map(filter => (
               <button
@@ -224,7 +480,7 @@ export default function DevelopmentPage() {
                         {work.category || 'Development'}
                       </span>
                       <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{work.title}</h3>
-                      <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.location || work.area?.name || 'Local Area'}</p>
+                      <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{w.areaId?.name || w.area?.name || w.location || 'Local Area'}</p>
                       
                       {/* Badge */}
                       <div className="mt-auto">
