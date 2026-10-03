@@ -109,48 +109,58 @@ export default function MyAreaPage() {
         setIsLoading(true);
 
         const worksRes = await api.getWorks({ limit: 100 }).catch(() => []);
-        const rawWorks = Array.isArray(worksRes) ? worksRes : (worksRes?.data || worksRes?.items || []);
+        const rawWorks = Array.isArray(worksRes) 
+          ? worksRes 
+          : (Array.isArray(worksRes?.data?.data) 
+            ? worksRes.data.data 
+            : (Array.isArray(worksRes?.data) 
+              ? worksRes.data 
+              : (Array.isArray(worksRes?.items) ? worksRes.items : [])));
 
-        // Strict Filter: Match citizen's area only from profile
+        // Flexible Area Matcher for Citizen Area
         const matchesUserArea = (item) => {
           if (!item) return false;
 
-          if (userAreaId) {
-            const itemAreaId = String(item.areaId || item.area?._id || item.area?.id || item.targetArea?._id || '');
-            if (itemAreaId && itemAreaId === String(userAreaId)) {
-              return true;
-            }
+          // 1. Direct ID matching (Area ID can be string or populated object)
+          const itemAreaId = item.areaId?._id || item.areaId?.id || (typeof item.areaId === 'string' ? item.areaId : '') || item.area?._id || item.area?.id || item.targetArea?._id || '';
+          if (userAreaId && itemAreaId && String(itemAreaId) === String(userAreaId)) {
+            return true;
           }
 
-          const filters = [userWard, userVillage, userBooth, userBlock, userAssembly, userDistrict]
+          // 2. Extract area name from areaId object or area fields
+          const areaObjName = item.areaId?.name || item.areaId?.title || item.area?.name || item.targetArea?.name || item.areaName || '';
+
+          const filters = [userWard, userVillage, userBooth, userPanchayat, userBlock, userAssembly, userDistrict]
             .filter(Boolean)
             .map(s => String(s).toLowerCase().trim())
             .filter(s => s.length > 1);
 
+          // If user hasn't set any specific sub-area yet, show all constituency works
           if (filters.length === 0) {
-            return false;
+            return true;
           }
 
           const itemFields = [
-            item.area?.name,
-            item.areaName,
+            areaObjName,
             item.location,
-            item.targetArea?.name,
             item.constituency,
             item.ward,
             item.village,
-            item.assembly,
+            item.panchayat,
             item.block,
+            item.assembly,
             item.district
           ].filter(Boolean).map(s => String(s).toLowerCase().trim());
 
-          const combinedItemText = `${itemFields.join(' ')} ${String(item.title || '').toLowerCase()}`;
+          const combinedItemText = `${itemFields.join(' ')} ${String(item.title || '').toLowerCase()} ${String(item.description || '').toLowerCase()}`;
 
+          // Check if any part of user's area hierarchy matches this work
           return filters.some(f => combinedItemText.includes(f));
         };
 
         const filteredWorks = rawWorks.filter(matchesUserArea);
-        setAreaWorks(filteredWorks);
+        // Fallback: If strict match found 0 works, display all available works for the constituency
+        setAreaWorks(filteredWorks.length > 0 ? filteredWorks : rawWorks);
       } catch (err) {
         console.warn('Error fetching area data:', err);
       } finally {
@@ -250,7 +260,7 @@ export default function MyAreaPage() {
                         </span>
 
                         <span className="text-[0.65rem] font-bold text-gray-400 truncate">
-                          {work.area?.name || userArea.village || userArea.panchayat || userArea.block || 'Constituency'}
+                          {work.areaId?.name || work.area?.name || work.location || userArea.village || userArea.panchayat || userArea.block || 'Constituency'}
                         </span>
                       </div>
 
