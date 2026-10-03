@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { HiArrowLeft, HiMapPin, HiXMark, HiChevronDown, HiFunnel } from 'react-icons/hi2';
+import { HiArrowLeft, HiMapPin, HiXMark, HiChevronDown, HiFunnel, HiMagnifyingGlass } from 'react-icons/hi2';
 import BottomNav from './BottomNav';
 import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
@@ -30,6 +30,9 @@ export default function DevelopmentPage() {
   const [selectedPanchayatId, setSelectedPanchayatId] = useState('');
   const [selectedVillageId, setSelectedVillageId] = useState('');
   const [showAreaFilters, setShowAreaFilters] = useState(false);
+  const [showBlockDropdown, setShowBlockDropdown] = useState(false);
+  const [showPanchayatDropdown, setShowPanchayatDropdown] = useState(false);
+  const [showVillageDropdown, setShowVillageDropdown] = useState(false);
   const [blockSearch, setBlockSearch] = useState('');
   const [panchayatSearch, setPanchayatSearch] = useState('');
   const [villageSearch, setVillageSearch] = useState('');
@@ -309,106 +312,246 @@ export default function DevelopmentPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* 1. Block Dropdown with Search */}
-                <div className="flex flex-col gap-1">
+                {/* 1. Custom Searchable Block Dropdown */}
+                <div className="flex flex-col gap-1 relative">
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                     1. ब्लॉक (Block)
                   </label>
                   <div className="relative">
-                    <select
-                      value={selectedBlockId}
-                      onChange={handleBlockChange}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 cursor-pointer"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBlockDropdown(prev => !prev);
+                        setShowPanchayatDropdown(false);
+                        setShowVillageDropdown(false);
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 flex items-center justify-between hover:bg-white focus:border-orange-500 transition-all text-left"
                     >
-                      <option value="">सभी ब्लॉक (All Blocks)</option>
-                      {blockOptions.map(b => (
-                        <option key={b._id || b.id} value={b._id || b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                    <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <span className="truncate">
+                        {currentBlockNode ? currentBlockNode.name : 'सभी ब्लॉक (All Blocks)'}
+                      </span>
+                      <HiChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showBlockDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showBlockDropdown && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1.5 animate-fade-in max-h-60">
+                        <div className="relative">
+                          <HiMagnifyingGlass className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="ब्लॉक खोजें (Search)..."
+                            value={blockSearch}
+                            onChange={(e) => setBlockSearch(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 pr-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBlockId('');
+                              setSelectedPanchayatId('');
+                              setSelectedVillageId('');
+                              setShowBlockDropdown(false);
+                              setBlockSearch('');
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all ${
+                              !selectedBlockId ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            सभी ब्लॉक (All Blocks)
+                          </button>
+                          {blockOptions.map(b => (
+                            <button
+                              key={b._id || b.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedBlockId(String(b._id || b.id));
+                                setSelectedPanchayatId('');
+                                setSelectedVillageId('');
+                                setShowBlockDropdown(false);
+                                setBlockSearch('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all truncate ${
+                                String(b._id || b.id) === String(selectedBlockId)
+                                  ? 'bg-orange-50 text-orange-700'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {b.name}
+                            </button>
+                          ))}
+                          {blockOptions.length === 0 && (
+                            <div className="text-[11px] text-gray-400 text-center py-2">कोई ब्लॉक नहीं मिला</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {/* Quick Block Search Input */}
-                  {(areaTreeData.tree || []).length > 3 && (
-                    <input
-                      type="text"
-                      placeholder="ब्लॉक खोजें..."
-                      value={blockSearch}
-                      onChange={(e) => setBlockSearch(e.target.value)}
-                      className="w-full text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 outline-none focus:border-orange-400 transition-all placeholder:text-gray-400"
-                    />
-                  )}
                 </div>
 
-                {/* 2. Gram Panchayat Dropdown with Search */}
-                <div className="flex flex-col gap-1">
+                {/* 2. Custom Searchable Gram Panchayat Dropdown */}
+                <div className="flex flex-col gap-1 relative">
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                     2. ग्राम पंचायत (Panchayat)
                   </label>
                   <div className="relative">
-                    <select
-                      value={selectedPanchayatId}
-                      onChange={handlePanchayatChange}
+                    <button
+                      type="button"
                       disabled={!selectedBlockId || rawPanchayatOptions.length === 0}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        setShowPanchayatDropdown(prev => !prev);
+                        setShowBlockDropdown(false);
+                        setShowVillageDropdown(false);
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 flex items-center justify-between hover:bg-white focus:border-orange-500 transition-all text-left disabled:opacity-50 disabled:bg-gray-100"
                     >
-                      <option value="">
-                        {!selectedBlockId ? 'पहले ब्लॉक चुनें' : 'सभी ग्राम पंचायत (All)'}
-                      </option>
-                      {panchayatOptions.map(p => (
-                        <option key={p._id || p.id} value={p._id || p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <span className="truncate">
+                        {!selectedBlockId 
+                          ? 'पहले ब्लॉक चुनें' 
+                          : currentPanchayatNode 
+                          ? currentPanchayatNode.name 
+                          : 'सभी ग्राम पंचायत (All)'}
+                      </span>
+                      <HiChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showPanchayatDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showPanchayatDropdown && selectedBlockId && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1.5 animate-fade-in max-h-60">
+                        <div className="relative">
+                          <HiMagnifyingGlass className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="पंचायत खोजें (Search)..."
+                            value={panchayatSearch}
+                            onChange={(e) => setPanchayatSearch(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 pr-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPanchayatId('');
+                              setSelectedVillageId('');
+                              setShowPanchayatDropdown(false);
+                              setPanchayatSearch('');
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all ${
+                              !selectedPanchayatId ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            सभी ग्राम पंचायत (All)
+                          </button>
+                          {panchayatOptions.map(p => (
+                            <button
+                              key={p._id || p.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedPanchayatId(String(p._id || p.id));
+                                setSelectedVillageId('');
+                                setShowPanchayatDropdown(false);
+                                setPanchayatSearch('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all truncate ${
+                                String(p._id || p.id) === String(selectedPanchayatId)
+                                  ? 'bg-orange-50 text-orange-700'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                          {panchayatOptions.length === 0 && (
+                            <div className="text-[11px] text-gray-400 text-center py-2">कोई पंचायत नहीं मिली</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {/* Quick Panchayat Search Input */}
-                  {selectedBlockId && rawPanchayatOptions.length > 3 && (
-                    <input
-                      type="text"
-                      placeholder="पंचायत खोजें..."
-                      value={panchayatSearch}
-                      onChange={(e) => setPanchayatSearch(e.target.value)}
-                      className="w-full text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 outline-none focus:border-orange-400 transition-all placeholder:text-gray-400"
-                    />
-                  )}
                 </div>
 
-                {/* 3. Village Dropdown with Search */}
-                <div className="flex flex-col gap-1">
+                {/* 3. Custom Searchable Village Dropdown */}
+                <div className="flex flex-col gap-1 relative">
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                     3. ग्राम / गांव (Village)
                   </label>
                   <div className="relative">
-                    <select
-                      value={selectedVillageId}
-                      onChange={handleVillageChange}
+                    <button
+                      type="button"
                       disabled={!selectedPanchayatId || rawVillageOptions.length === 0}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-orange-500 focus:bg-white appearance-none pr-8 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        setShowVillageDropdown(prev => !prev);
+                        setShowBlockDropdown(false);
+                        setShowPanchayatDropdown(false);
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 flex items-center justify-between hover:bg-white focus:border-orange-500 transition-all text-left disabled:opacity-50 disabled:bg-gray-100"
                     >
-                      <option value="">
-                        {!selectedPanchayatId ? 'पहले पंचायत चुनें' : 'सभी गांव (All Villages)'}
-                      </option>
-                      {villageOptions.map(v => (
-                        <option key={v._id || v.id} value={v._id || v.id}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </select>
-                    <HiChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <span className="truncate">
+                        {!selectedPanchayatId 
+                          ? 'पहले पंचायत चुनें' 
+                          : rawVillageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name || 'सभी गांव (All Villages)'}
+                      </span>
+                      <HiChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showVillageDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showVillageDropdown && selectedPanchayatId && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl p-2 flex flex-col gap-1.5 animate-fade-in max-h-60">
+                        <div className="relative">
+                          <HiMagnifyingGlass className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="गांव खोजें (Search)..."
+                            value={villageSearch}
+                            onChange={(e) => setVillageSearch(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 pr-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVillageId('');
+                              setShowVillageDropdown(false);
+                              setVillageSearch('');
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all ${
+                              !selectedVillageId ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            सभी गांव (All Villages)
+                          </button>
+                          {villageOptions.map(v => (
+                            <button
+                              key={v._id || v.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedVillageId(String(v._id || v.id));
+                                setShowVillageDropdown(false);
+                                setVillageSearch('');
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold text-left transition-all truncate ${
+                                String(v._id || v.id) === String(selectedVillageId)
+                                  ? 'bg-orange-50 text-orange-700'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {v.name}
+                            </button>
+                          ))}
+                          {villageOptions.length === 0 && (
+                            <div className="text-[11px] text-gray-400 text-center py-2">कोई गांव नहीं मिला</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {/* Quick Village Search Input */}
-                  {selectedPanchayatId && rawVillageOptions.length > 2 && (
-                    <input
-                      type="text"
-                      placeholder="गांव खोजें..."
-                      value={villageSearch}
-                      onChange={(e) => setVillageSearch(e.target.value)}
-                      className="w-full text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-700 outline-none focus:border-orange-400 transition-all placeholder:text-gray-400"
-                    />
-                  )}
                 </div>
               </div>
 
@@ -420,7 +563,7 @@ export default function DevelopmentPage() {
                     {[
                       currentBlockNode?.name,
                       currentPanchayatNode?.name,
-                      villageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name
+                      rawVillageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name
                     ].filter(Boolean).join(' ➔ ')}
                   </span>
                   <span className="ml-auto font-black" style={{ color: primaryColor }}>
