@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { useTenant } from '../context/TenantContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getMediaUrl } from '../utils/mediaUrl';
+import { matchHindiEnglish } from '../utils/searchMatcher';
 
 export default function DevelopmentPage() {
   const navigate = useNavigate();
@@ -24,6 +25,10 @@ export default function DevelopmentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const tabsRef = useRef(null);
 
+  // Pagination / Load More state (Initial 20 items per batch, loads all smoothly)
+  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   // Area Hierarchy State (Block -> Gram Panchayat -> Village)
   const [areaTreeData, setAreaTreeData] = useState({ levels: [], tree: [] });
   const [selectedBlockId, setSelectedBlockId] = useState('');
@@ -36,6 +41,11 @@ export default function DevelopmentPage() {
   const [blockSearch, setBlockSearch] = useState('');
   const [panchayatSearch, setPanchayatSearch] = useState('');
   const [villageSearch, setVillageSearch] = useState('');
+
+  // Reset pagination when any filter changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeFilter, searchQuery, selectedBlockId, selectedPanchayatId, selectedVillageId]);
 
   useEffect(() => {
     const cat = location.state?.category || new URLSearchParams(location.search).get('category');
@@ -69,21 +79,21 @@ export default function DevelopmentPage() {
     fetchAreaTree();
   }, []);
 
-  // Cascading options
+  // Cascading options with bilingual Hindi + English (Hinglish/Phonetic) search
   const blockOptions = (areaTreeData.tree || []).filter(b => 
-    !blockSearch.trim() || (b.name || '').toLowerCase().includes(blockSearch.toLowerCase())
+    !blockSearch.trim() || matchHindiEnglish(b.name, blockSearch)
   );
   
   const currentBlockNode = (areaTreeData.tree || []).find(b => String(b._id || b.id) === String(selectedBlockId));
   const rawPanchayatOptions = currentBlockNode?.children || [];
   const panchayatOptions = rawPanchayatOptions.filter(p => 
-    !panchayatSearch.trim() || (p.name || '').toLowerCase().includes(panchayatSearch.toLowerCase())
+    !panchayatSearch.trim() || matchHindiEnglish(p.name, panchayatSearch)
   );
 
   const currentPanchayatNode = rawPanchayatOptions.find(p => String(p._id || p.id) === String(selectedPanchayatId));
   const rawVillageOptions = currentPanchayatNode?.children || [];
   const villageOptions = rawVillageOptions.filter(v => 
-    !villageSearch.trim() || (v.name || '').toLowerCase().includes(villageSearch.toLowerCase())
+    !villageSearch.trim() || matchHindiEnglish(v.name, villageSearch)
   );
 
   const handleBlockChange = (e) => {
@@ -119,14 +129,7 @@ export default function DevelopmentPage() {
     const fetchWorks = async () => {
       try {
         setIsLoading(true);
-        const res = await api.getWorks({ limit: 100 }).catch(() => []);
-        const list = Array.isArray(res) 
-          ? res 
-          : (Array.isArray(res?.data?.data) 
-            ? res.data.data 
-            : (Array.isArray(res?.data) 
-              ? res.data 
-              : (Array.isArray(res?.items) ? res.items : [])));
+        const list = await api.getAllWorks().catch(() => []);
         
         // Dynamically extract unique categories from all works
         const dynamicCats = [
@@ -169,18 +172,17 @@ export default function DevelopmentPage() {
     return () => clearInterval(timer);
   }, [categories.length]);
 
-  // Combined Area + Category + Search query filtering
+  // Combined Area + Category + Search query filtering (Hindi + English)
   const filteredWorks = works.filter((w) => {
-    // 1. Search Query Match
+    // 1. Search Query Match (Supports Hindi and English transliteration)
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
       const areaObjName = w.areaId?.name || w.area?.name || '';
       const textMatch = (
-        (w.title && w.title.toLowerCase().includes(q)) ||
-        (w.description && w.description.toLowerCase().includes(q)) ||
-        (areaObjName && areaObjName.toLowerCase().includes(q)) ||
-        (w.location && w.location.toLowerCase().includes(q)) ||
-        (w.category && w.category.toLowerCase().includes(q))
+        matchHindiEnglish(w.title, searchQuery) ||
+        matchHindiEnglish(w.description, searchQuery) ||
+        matchHindiEnglish(areaObjName, searchQuery) ||
+        matchHindiEnglish(w.location, searchQuery) ||
+        matchHindiEnglish(w.category, searchQuery)
       );
       if (!textMatch) return false;
     }
@@ -193,45 +195,50 @@ export default function DevelopmentPage() {
       const titleText = (w.title || '').toLowerCase();
       const combinedLocation = `${areaObjName} ${locationText} ${titleText}`;
 
-      // If Village is selected: Match Village ID or Village Name
+      // If Village is selected: Match Village ID or Village Name (Hindi & English)
       if (selectedVillageId) {
         const villageNode = villageOptions.find(v => String(v._id || v.id) === String(selectedVillageId));
-        const villageName = (villageNode?.name || '').toLowerCase();
+        const villageName = villageNode?.name || '';
         const idMatches = itemAreaId && itemAreaId === String(selectedVillageId);
-        const nameMatches = villageName && combinedLocation.includes(villageName);
+        const nameMatches = villageName && (
+          matchHindiEnglish(combinedLocation, villageName) ||
+          matchHindiEnglish(villageName, combinedLocation)
+        );
         if (!idMatches && !nameMatches) return false;
       }
-      // Else if Panchayat is selected: Match Panchayat ID, Panchayat Name or any child Village ID/name
+      // Else if Panchayat is selected: Match Panchayat ID, Panchayat Name or any child Village ID/name (Hindi & English)
       else if (selectedPanchayatId) {
         const panchayatNode = currentPanchayatNode;
-        const panchayatName = (panchayatNode?.name || '').toLowerCase();
+        const panchayatName = panchayatNode?.name || '';
         const childVillageIds = (panchayatNode?.children || []).map(v => String(v._id || v.id));
-        const childVillageNames = (panchayatNode?.children || []).map(v => (v.name || '').toLowerCase()).filter(Boolean);
+        const childVillageNames = (panchayatNode?.children || []).map(v => v.name || '').filter(Boolean);
 
         const idMatches = (itemAreaId && itemAreaId === String(selectedPanchayatId)) || childVillageIds.includes(itemAreaId);
-        const nameMatches = (panchayatName && combinedLocation.includes(panchayatName)) || childVillageNames.some(vn => combinedLocation.includes(vn));
+        const nameMatches = (panchayatName && matchHindiEnglish(combinedLocation, panchayatName)) || 
+          childVillageNames.some(vn => matchHindiEnglish(combinedLocation, vn));
 
         if (!idMatches && !nameMatches) return false;
       }
-      // Else if Block is selected: Match Block ID, Block Name or any child Panchayat / Village
+      // Else if Block is selected: Match Block ID, Block Name or any child Panchayat / Village (Hindi & English)
       else if (selectedBlockId) {
         const blockNode = currentBlockNode;
-        const blockName = (blockNode?.name || '').toLowerCase();
+        const blockName = blockNode?.name || '';
         
         // Collect all descendant IDs and names
         const descendantIds = [];
         const descendantNames = [];
         (blockNode?.children || []).forEach(p => {
           descendantIds.push(String(p._id || p.id));
-          if (p.name) descendantNames.push(p.name.toLowerCase());
+          if (p.name) descendantNames.push(p.name);
           (p.children || []).forEach(v => {
             descendantIds.push(String(v._id || v.id));
-            if (v.name) descendantNames.push(v.name.toLowerCase());
+            if (v.name) descendantNames.push(v.name);
           });
         });
 
         const idMatches = (itemAreaId && itemAreaId === String(selectedBlockId)) || descendantIds.includes(itemAreaId);
-        const nameMatches = (blockName && combinedLocation.includes(blockName)) || descendantNames.some(dn => combinedLocation.includes(dn));
+        const nameMatches = (blockName && matchHindiEnglish(combinedLocation, blockName)) || 
+          descendantNames.some(dn => matchHindiEnglish(combinedLocation, dn));
 
         if (!idMatches && !nameMatches) return false;
       }
@@ -617,7 +624,13 @@ export default function DevelopmentPage() {
             <LoadingSpinner message={t('loading')} />
           ) : filteredWorks.length > 0 ? (
             <div className="flex flex-col gap-4">
-              {filteredWorks.map((work) => {
+              {/* Count Indicator */}
+              <div className="flex items-center justify-between text-xs font-bold text-gray-500 px-1">
+                <span>कुल कार्य: {filteredWorks.length}</span>
+                <span>दिखा रहे हैं: {Math.min(visibleCount, filteredWorks.length)} / {filteredWorks.length}</span>
+              </div>
+
+              {filteredWorks.slice(0, visibleCount).map((work) => {
                 const badge = getStatusBadge(work.status);
                 const workId = work._id || work.id;
                 const rawImg = (Array.isArray(work.images) && work.images.length > 0 ? work.images[0] : null) ||
@@ -682,6 +695,30 @@ export default function DevelopmentPage() {
                   </div>
                 );
               })}
+
+              {/* Load More Button for Pagination */}
+              {visibleCount < filteredWorks.length && (
+                <div className="pt-2 pb-6 flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+                    className="w-full py-3 px-4 rounded-xl text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 hover:opacity-95"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <span>और कार्य लोड करें (Load More)</span>
+                    <span className="text-[11px] opacity-80 font-normal">
+                      (+{Math.min(PAGE_SIZE, filteredWorks.length - visibleCount)} और)
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(filteredWorks.length)}
+                    className="text-[11px] font-bold text-gray-500 hover:text-gray-800 transition-colors py-1"
+                  >
+                    सभी {filteredWorks.length} कार्य एक साथ दिखाएं (Show All)
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="py-12 text-center bg-white rounded-2xl border border-dashed border-gray-200 p-6">

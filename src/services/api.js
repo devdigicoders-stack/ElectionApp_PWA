@@ -321,6 +321,33 @@ class ApiClient {
     });
   }
 
+  // Fetch all works across all pages without artificial caps
+  async getAllWorks(params = {}) {
+    let allItems = [];
+    let page = 1;
+    const limit = 100;
+    while (true) {
+      const queryParams = { ...params, limit, page };
+      const res = await this.getWorks(queryParams).catch(() => null);
+      if (!res) break;
+      const list = Array.isArray(res) 
+        ? res 
+        : (Array.isArray(res?.data?.data) 
+          ? res.data.data 
+          : (Array.isArray(res?.data) 
+            ? res.data 
+            : (Array.isArray(res?.items) ? res.items : [])));
+      
+      allItems.push(...list);
+      const total = res?.data?.total || res?.total || allItems.length;
+      if (allItems.length >= total || list.length === 0) {
+        break;
+      }
+      page++;
+    }
+    return allItems;
+  }
+
   getWorkById(id) {
     return this.request(`/works/${id}`, {
       method: 'GET',

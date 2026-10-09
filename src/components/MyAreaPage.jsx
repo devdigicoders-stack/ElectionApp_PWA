@@ -108,14 +108,7 @@ export default function MyAreaPage() {
       try {
         setIsLoading(true);
 
-        const worksRes = await api.getWorks({ limit: 100 }).catch(() => []);
-        const rawWorks = Array.isArray(worksRes) 
-          ? worksRes 
-          : (Array.isArray(worksRes?.data?.data) 
-            ? worksRes.data.data 
-            : (Array.isArray(worksRes?.data) 
-              ? worksRes.data 
-              : (Array.isArray(worksRes?.items) ? worksRes.items : [])));
+        const rawWorks = await api.getAllWorks().catch(() => []);
 
         // Flexible Area Matcher for Citizen Area
         const matchesUserArea = (item) => {

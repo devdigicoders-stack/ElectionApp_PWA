@@ -186,15 +186,8 @@ export default function HomePage() {
           setUpcomingEvents(finalEvents);
         }
 
-        // 6. Fetch Development Works (All works visible in slider)
-        const worksRes = await api.getWorks({ limit: 100 }).catch(() => []);
-        const worksList = Array.isArray(worksRes) 
-          ? worksRes 
-          : (Array.isArray(worksRes?.data?.data) 
-            ? worksRes.data.data 
-            : (Array.isArray(worksRes?.data) 
-              ? worksRes.data 
-              : (Array.isArray(worksRes?.items) ? worksRes.items : [])));
+        // 6. Fetch Development Works (All works visible in slider without limitation)
+        const worksList = await api.getAllWorks().catch(() => []);
         if (worksList.length > 0) {
           setDevProjects(worksList);
         }
