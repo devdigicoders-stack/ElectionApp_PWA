@@ -991,7 +991,7 @@ export default function DevelopmentPage() {
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse"></span>
                       <h3 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wider">
-                        PDF प्रपत्र दृश्य (Official Road Report Card)
+                        PDF प्रपत्र दृश्य 
                       </h3>
                     </div>
                     <button
