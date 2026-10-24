@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { HiArrowLeft, HiMapPin, HiXMark, HiChevronDown, HiFunnel, HiMagnifyingGlass } from 'react-icons/hi2';
+import { 
+  HiArrowLeft, 
+  HiMapPin, 
+  HiXMark, 
+  HiChevronDown, 
+  HiFunnel, 
+  HiMagnifyingGlass,
+  HiSquares2X2,
+  HiTableCells,
+  HiArrowDownTray,
+  HiEye,
+  HiDocumentText
+} from 'react-icons/hi2';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import BottomNav from './BottomNav';
 import LoadingSpinner from './LoadingSpinner';
 import { api } from '../services/api';
@@ -14,8 +28,8 @@ import { matchHindiEnglish } from '../utils/searchMatcher';
 export default function DevelopmentPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useLanguage();
-  const { primaryColor, secondaryColor } = useTenant();
+  const { t, language } = useLanguage();
+  const { primaryColor, secondaryColor, config } = useTenant();
   
   const initialCategory = location.state?.category || new URLSearchParams(location.search).get('category') || 'All';
   const [activeFilter, setActiveFilter] = useState(initialCategory);
@@ -23,7 +37,18 @@ export default function DevelopmentPage() {
   const [works, setWorks] = useState([]);
   const [categories, setCategories] = useState(['All']);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('card'); // 'card' | 'pdf'
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const tabsRef = useRef(null);
+  const pdfPrintRef = useRef(null);
+  const contentScrollRef = useRef(null);
+
+  // Scroll to top helper
+  const scrollToTop = () => {
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Pagination / Load More state (Initial 20 items per batch, loads all smoothly)
   const PAGE_SIZE = 20;
@@ -249,13 +274,182 @@ export default function DevelopmentPage() {
 
   const getStatusBadge = (status) => {
     const s = String(status || '').toLowerCase();
-    if (s.includes('complete')) {
-      return { label: t('completed'), color: 'bg-green-100 text-green-700' };
+    if (s.includes('complete') || s.includes('पूर्ण')) {
+      return { 
+        label: t('statusCompleted') || 'कार्य पूर्ण', 
+        color: 'bg-emerald-100 text-emerald-800 border border-emerald-300', 
+        printColor: '#15803d', 
+        printBg: '#dcfce7',
+        type: 'completed'
+      };
     }
-    if (s.includes('progress') || s.includes('ongoing')) {
-      return { label: t('inProgress'), color: 'bg-blue-100 text-blue-700' };
+    if (s.includes('progress') || s.includes('ongoing') || s.includes('प्रगति')) {
+      return { 
+        label: t('statusInProgress') || 'कार्य प्रगति पर', 
+        color: 'bg-blue-100 text-blue-800 border border-blue-300', 
+        printColor: '#1d4ed8', 
+        printBg: '#dbeafe',
+        type: 'in_progress'
+      };
     }
-    return { label: t('planned'), color: 'bg-purple-100 text-purple-700' };
+    if (s.includes('approve') || s.includes('sanction') || s.includes('स्वीकृत')) {
+      return { 
+        label: t('statusApproved') || 'कार्य स्वीकृत', 
+        color: 'bg-purple-100 text-purple-800 border border-purple-300', 
+        printColor: '#b91c1c', 
+        printBg: '#fee2e2',
+        type: 'approved'
+      };
+    }
+    return { 
+      label: t('statusProposed') || 'प्रस्तावित मार्ग', 
+      color: 'bg-rose-100 text-rose-800 border border-rose-300', 
+      printColor: '#dc2626', 
+      printBg: '#fee2e2',
+      type: 'proposed'
+    };
+  };
+
+  // Helper getters for Road & Development works
+  const getWorkLength = (w) => {
+    if (w.proposedLength) return String(w.proposedLength);
+    if (w.length) return String(w.length);
+    // Extract from title/desc if contains किमी / km
+    const text = `${w.title || ''} ${w.description || ''}`;
+    const kmMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:किमी|कि०मी०|km|किलोमीटर)/i);
+    if (kmMatch) return `${kmMatch[1]} किमी०`;
+    const meterMatch = text.match(/([0-9]+)\s*(?:मी०|मीटर|meter)/i);
+    if (meterMatch) return `${meterMatch[1]} मी०`;
+    return w.budget ? `₹ ${w.budget}` : '-';
+  };
+
+  const getWorkDepartment = (w) => {
+    if (w.department) return w.department;
+    if (w.agency) return w.agency;
+    const text = `${w.title || ''} ${w.description || ''}`.toUpperCase();
+    if (text.includes('PWD') || text.includes('पी०डब्ल्यू०डी') || text.includes('लोक निर्माण')) return 'PWD';
+    if (text.includes('मंडी') || text.includes('MANDI')) return 'मंडी परिषद';
+    if (text.includes('PMGSY') || text.includes('पीएमजीएसवाई')) return 'आर०ई०एस० PMGSY';
+    if (text.includes('त्वरित') || text.includes('आर०ई०एस० त्वरित') || text.includes('RES TVARIT')) return 'आर०ई०एस० त्वरित';
+    if (text.includes('राज्यांश') || text.includes('राज्यान्श')) return 'आर०ई०एस० राज्यांश';
+    if (text.includes('RES') || text.includes('आर०ई०एस')) return 'आर०ई०एस०';
+    return w.category || 'PWD';
+  };
+
+  const getWorkYear = (w) => {
+    if (w.financialYear) return w.financialYear;
+    if (w.year) return w.year;
+    const text = `${w.title || ''} ${w.description || ''}`;
+    const yrMatch = text.match(/20(2[0-9])[-–/](2[0-9])/);
+    if (yrMatch) return `${yrMatch[1]}-${yrMatch[2]}`;
+    if (w.startDate) {
+      const yr = new Date(w.startDate).getFullYear().toString().slice(-2);
+      const nextYr = (Number(yr) + 1).toString();
+      return `${yr}-${nextYr}`;
+    }
+    return '25-26';
+  };
+
+  const getWorkBlock = (w) => {
+    if (w.block) return w.block;
+    if (w.areaId?.name) return w.areaId.name;
+    if (w.area?.name) return w.area.name;
+    const loc = w.location || '';
+    if (loc.includes('रामपुर') || loc.toLowerCase().includes('rampur')) return 'रामपुर';
+    if (loc.includes('रामनगर') || loc.toLowerCase().includes('ramnagar')) return 'रामनगर';
+    if (loc.includes('मड़ियाहूँ') || loc.includes('मडियाहू') || loc.toLowerCase().includes('madiyahu')) return 'मड़ियाहूँ';
+    return loc || 'मड़ियाहूँ';
+  };
+
+  // Status statistics for report card
+  const statusStats = {
+    total: filteredWorks.length,
+    completed: filteredWorks.filter(w => {
+      const s = String(w.status || '').toLowerCase();
+      return s.includes('complete') || s.includes('पूर्ण');
+    }).length,
+    inProgress: filteredWorks.filter(w => {
+      const s = String(w.status || '').toLowerCase();
+      return s.includes('progress') || s.includes('ongoing') || s.includes('प्रगति');
+    }).length,
+    approved: filteredWorks.filter(w => {
+      const s = String(w.status || '').toLowerCase();
+      return s.includes('approve') || s.includes('sanction') || s.includes('स्वीकृत');
+    }).length,
+    proposed: filteredWorks.filter(w => {
+      const s = String(w.status || '').toLowerCase();
+      return !s.includes('complete') && !s.includes('पूर्ण') && !s.includes('progress') && !s.includes('ongoing') && !s.includes('प्रगति') && !s.includes('approve') && !s.includes('स्वीकृत');
+    }).length,
+  };
+
+  // Download filtered works as PDF with formatted table & metadata
+  const handleDownloadPdf = async () => {
+    if (filteredWorks.length === 0) {
+      toast.warn(t('noWorksFound'));
+      return;
+    }
+
+    try {
+      setIsGeneratingPdf(true);
+      toast.info(t('generatingPdf'), { autoClose: 2000 });
+
+      // Allow DOM to update printable ref
+      await new Promise(r => setTimeout(r, 200));
+
+      const element = pdfPrintRef.current;
+      if (!element) {
+        throw new Error('Printable element not found');
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 1000
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // Landscape A4 orientation in pt (842 x 595 pt)
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'pt',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
+
+      // Add remaining pages if content overflows A4 height
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pdfHeight;
+      }
+
+      const safeCategoryName = (activeFilter || 'All').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      pdf.save(`Vikas-Karya-${safeCategoryName}-${timestamp}.pdf`);
+      toast.success(language === 'hi' ? 'PDF सफलता पूर्वक डाउनलोड हो गया!' : 'PDF downloaded successfully!');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error(language === 'hi' ? 'PDF जनरेट करने में समस्या आई' : 'Failed to generate PDF');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -277,7 +471,10 @@ export default function DevelopmentPage() {
 
         {/* Filter Toggle Button */}
         <button
-          onClick={() => setShowAreaFilters(prev => !prev)}
+          onClick={() => {
+            setShowAreaFilters(prev => !prev);
+            scrollToTop();
+          }}
           className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all active:scale-95 shrink-0 ${
             isAreaFilterActive || showAreaFilters
               ? 'bg-orange-50 text-orange-700 border-orange-200 shadow-xs'
@@ -296,7 +493,7 @@ export default function DevelopmentPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto w-full relative">
+      <div ref={contentScrollRef} className="flex-1 overflow-y-auto w-full relative scroll-smooth">
         <div className="p-4 flex flex-col gap-4">
           
           {/* Area Hierarchy Filter Box (Block -> Gram Panchayat -> Village) */}
@@ -309,7 +506,10 @@ export default function DevelopmentPage() {
                 </div>
                 {isAreaFilterActive && (
                   <button
-                    onClick={clearAreaFilter}
+                    onClick={() => {
+                      clearAreaFilter();
+                      scrollToTop();
+                    }}
                     className="flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 active:scale-95"
                   >
                     <HiXMark className="w-3.5 h-3.5" />
@@ -619,104 +819,317 @@ export default function DevelopmentPage() {
             ))}
           </div>
 
-          {/* Works List */}
+          {/* View Toggle Bar (Only 2 Modes: Card View vs PDF Report Card) & PDF Download Button */}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-2 rounded-2xl border border-gray-200/80 shadow-xs">
+            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('card');
+                  scrollToTop();
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === 'card' 
+                    ? 'bg-white text-gray-900 shadow-xs font-black' 
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <HiSquares2X2 className="w-4 h-4" />
+                <span>{language === 'hi' ? 'कार्ड दृश्य' : (t('cardView') || 'Cards')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('pdf');
+                  scrollToTop();
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === 'pdf' 
+                    ? 'bg-white text-red-600 shadow-xs font-black' 
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <HiDocumentText className="w-4 h-4 text-red-500" />
+                <span>{language === 'hi' ? 'PDF रिपोर्ट कार्ड' : (t('pdfView') || 'PDF Report Card')}</span>
+              </button>
+            </div>
+
+            {/* Quick PDF Download Button */}
+            <button
+              type="button"
+              disabled={isGeneratingPdf || filteredWorks.length === 0}
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm hover:opacity-95 active:scale-95 transition-all disabled:opacity-50"
+              style={{ backgroundColor: primaryColor }}
+              title="Download PDF format"
+            >
+              <HiArrowDownTray className={`w-4 h-4 ${isGeneratingPdf ? 'animate-bounce' : ''}`} />
+              <span className="hidden sm:inline">{isGeneratingPdf ? t('generatingPdf') : t('downloadPdf')}</span>
+              <span className="sm:hidden">{isGeneratingPdf ? 'PDF...' : 'PDF'}</span>
+            </button>
+          </div>
+
+          {/* Works Content (Cards or Table) */}
           {isLoading ? (
             <LoadingSpinner message={t('loading')} />
           ) : filteredWorks.length > 0 ? (
             <div className="flex flex-col gap-4">
               {/* Count Indicator */}
               <div className="flex items-center justify-between text-xs font-bold text-gray-500 px-1">
-                <span>कुल कार्य: {filteredWorks.length}</span>
-                <span>दिखा रहे हैं: {Math.min(visibleCount, filteredWorks.length)} / {filteredWorks.length}</span>
+                <span>{t('totalWorksFound')}: <strong className="text-gray-800">{filteredWorks.length}</strong></span>
+                {viewMode === 'card' && (
+                  <span>दिखा रहे हैं: {Math.min(visibleCount, filteredWorks.length)} / {filteredWorks.length}</span>
+                )}
+                {viewMode === 'pdf' && (
+                  <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded-md text-[11px] font-black border border-red-200">
+                    📄 PDF प्रपत्र सक्रिय
+                  </span>
+                )}
               </div>
 
-              {filteredWorks.slice(0, visibleCount).map((work) => {
-                const badge = getStatusBadge(work.status);
-                const workId = work._id || work.id;
-                const rawImg = (Array.isArray(work.images) && work.images.length > 0 ? work.images[0] : null) ||
-                  work.coverImageUrl ||
-                  work.imageUrl ||
-                  work.image ||
-                  work.coverImage ||
-                  null;
-                const workImage = rawImg ? getMediaUrl(rawImg) : null;
+              {/* 1. CARD VIEW (Traditional view) */}
+              {viewMode === 'card' && (
+                <>
+                  {filteredWorks.slice(0, visibleCount).map((work) => {
+                    const badge = getStatusBadge(work.status);
+                    const workId = work._id || work.id;
+                    const rawImg = (Array.isArray(work.images) && work.images.length > 0 ? work.images[0] : null) ||
+                      work.coverImageUrl ||
+                      work.imageUrl ||
+                      work.image ||
+                      work.coverImage ||
+                      null;
+                    const workImage = rawImg ? getMediaUrl(rawImg) : null;
 
-                return (
-                  <div 
-                    key={workId} 
-                    onClick={() => {
-                      if (!storage.isRegistered()) {
-                        toast.warn('ऐप इस्तेमाल करने के लिए रजिस्ट्रेशन करना जरूरी है!', { toastId: 'reg-req' });
-                        window.dispatchEvent(new CustomEvent('pwa_open_registration'));
-                        return;
-                      }
-                      navigate(`/works/${workId}`);
-                    }}
-                    className="bg-white rounded-2xl p-3.5 flex gap-4 shadow-sm border border-gray-100 items-center cursor-pointer transition-transform active:scale-[0.98] hover:shadow-md hover:border-gray-300"
-                  >
-                    {/* Image */}
-                    <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative flex items-center justify-center">
-                      {workImage ? (
-                        <img 
-                          src={workImage} 
-                          alt={work.title} 
-                          className="w-full h-full object-cover" 
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
+                    return (
                       <div 
-                        className={`w-full h-full items-center justify-center flex-col text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200 ${workImage ? 'hidden' : 'flex'}`}
+                        key={workId} 
+                        onClick={() => {
+                          if (!storage.isRegistered()) {
+                            toast.warn('ऐप इस्तेमाल करने के लिए रजिस्ट्रेशन करना जरूरी है!', { toastId: 'reg-req' });
+                            window.dispatchEvent(new CustomEvent('pwa_open_registration'));
+                            return;
+                          }
+                          navigate(`/works/${workId}`);
+                        }}
+                        className="bg-white rounded-2xl p-3.5 flex gap-4 shadow-sm border border-gray-100 items-center cursor-pointer transition-transform active:scale-[0.98] hover:shadow-md hover:border-gray-300"
                       >
-                        <span className="text-2xl">🏗️</span>
+                        {/* Image */}
+                        <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative flex items-center justify-center">
+                          {workImage ? (
+                            <img 
+                              src={workImage} 
+                              alt={work.title} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-full h-full items-center justify-center flex-col text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200 ${workImage ? 'hidden' : 'flex'}`}
+                          >
+                            <span className="text-2xl">🏗️</span>
+                          </div>
+                        </div>
+                        
+                        {/* Details */}
+                        <div className="flex flex-col flex-1 py-1 min-w-0">
+                          <span 
+                            className="text-[0.62rem] font-bold uppercase tracking-wider mb-0.5"
+                            style={{ color: primaryColor }}
+                          >
+                            {work.category || 'Development'}
+                          </span>
+                          <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{work.title}</h3>
+                          <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.areaId?.name || work.area?.name || work.location || 'Local Area'}</p>
+                          
+                          {/* Badge */}
+                          <div className="mt-auto">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[0.65rem] font-bold tracking-wide ${badge.color}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Load More Button for Pagination */}
+                  {visibleCount < filteredWorks.length && (
+                    <div className="pt-2 pb-6 flex flex-col items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+                        className="w-full py-3 px-4 rounded-xl text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 hover:opacity-95"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        <span>और कार्य लोड करें (Load More)</span>
+                        <span className="text-[11px] opacity-80 font-normal">
+                          (+{Math.min(PAGE_SIZE, filteredWorks.length - visibleCount)} और)
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(filteredWorks.length)}
+                        className="text-[11px] font-bold text-gray-500 hover:text-gray-800 transition-colors py-1"
+                      >
+                        सभी {filteredWorks.length} कार्य एक साथ दिखाएं (Show All)
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* PDF REPORT CARD VIEW (Exact layout matching the PDF document) */}
+              {viewMode === 'pdf' && (
+                <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden flex flex-col p-4 sm:p-6 transition-all">
+                  {/* Action Bar */}
+                  <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse"></span>
+                      <h3 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wider">
+                        PDF प्रपत्र दृश्य (Official Road Report Card)
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      disabled={isGeneratingPdf}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black text-white shadow-sm hover:opacity-95 active:scale-95 transition-all"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <HiArrowDownTray className="w-4 h-4" />
+                      <span>{isGeneratingPdf ? 'PDF तैयार हो रहा है...' : 'PDF डाउनलोड करें'}</span>
+                    </button>
+                  </div>
+
+                  {/* Report Card Page Container */}
+                  <div className="w-full bg-[#fdfdfd] border border-gray-300 rounded-xl p-4 sm:p-6 shadow-xs overflow-x-auto">
+                    {/* Header: Leader, Area, Title */}
+                    <div className="text-center pb-4 border-b border-gray-200">
+                      <h2 className="text-lg sm:text-xl font-black text-[#dc2626] tracking-wide mb-0.5">
+                        {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
+                      </h2>
+                      <h3 className="text-sm sm:text-base font-extrabold text-[#7c2d12] mb-1">
+                        {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
+                      </h3>
+                      <h4 className="text-base sm:text-lg font-black text-[#0f766e] flex items-center justify-center gap-2">
+                        <span>सड़क एवं संपर्क मार्ग विकास कार्य — रिपोर्ट कार्ड</span>
+                      </h4>
+
+                      {/* Summary Counters Banner */}
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-[#dc2626]">
+                          {filteredWorks.length} विकास कार्यों का विवरण
+                        </div>
+                        <div className="text-xs font-bold text-gray-700 mt-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+                          <span className="text-emerald-700 font-black">{statusStats.completed} कार्य पूर्ण</span>
+                          <span>•</span>
+                          <span className="text-blue-700 font-black">{statusStats.inProgress} कार्य प्रगति पर</span>
+                          <span>•</span>
+                          <span className="text-purple-700 font-black">{statusStats.approved} कार्य स्वीकृत</span>
+                          <span>•</span>
+                          <span className="text-rose-700 font-black">प्रस्तावित {statusStats.proposed}</span>
+                        </div>
+                      </div>
+
+                      {/* Major Work Categories Pills */}
+                      <div className="mt-3 pt-3 border-t border-dashed border-gray-200 flex flex-col items-center gap-1 text-[11px] font-bold text-gray-800">
+                        <span className="text-xs font-black text-rose-700">प्रमुख कार्य</span>
+                        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-gray-700">
+                          <span>🔹 सड़क का चौड़ीकरण एवं सुदृढ़ीकरण</span>
+                          <span>🔹 ग्रामीण क्षेत्रों में नवीन पिच रोड एवं सी.सी. रोड निर्माण</span>
+                          <span>🔹 विशेष मरम्मत कार्य</span>
+                          <span>🔹 इंटरलॉकिंग कार्य</span>
+                        </div>
+                      </div>
+
+                      {/* Meta Information Bar (Blocks, Departments & Financial Years) */}
+                      <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-2 text-[11px] font-semibold text-gray-700 flex flex-col gap-1 text-center">
+                        <div>
+                          <strong className="text-cyan-800">विकास खण्ड:</strong> रामपुर | रामनगर | मड़ियाहूँ
+                        </div>
+                        <div>
+                          <strong className="text-gray-900">विभाग:</strong> लोक निर्माण विभाग (PWD) | मंडी परिषद | आर.ई.एस. त्वरित | आर.ई.एस. राज्यांश | PMGSY
+                        </div>
+                        <div className="text-amber-800 font-bold">
+                          वित्तीय वर्ष 2022–23 से 2026–27 तक के कार्यों का संकलित विवरण
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Details */}
-                    <div className="flex flex-col flex-1 py-1 min-w-0">
-                      <span 
-                        className="text-[0.62rem] font-bold uppercase tracking-wider mb-0.5"
-                        style={{ color: primaryColor }}
-                      >
-                        {work.category || 'Development'}
-                      </span>
-                      <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{work.title}</h3>
-                      <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.areaId?.name || work.area?.name || work.location || 'Local Area'}</p>
-                      
-                      {/* Badge */}
-                      <div className="mt-auto">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[0.65rem] font-bold tracking-wide ${badge.color}`}>
-                          {badge.label}
-                        </span>
-                      </div>
+
+                    {/* PDF-Style Table */}
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-400 text-xs text-left">
+                        <thead>
+                          <tr className="bg-gray-100 text-gray-900 font-black text-[10px] uppercase border-b-2 border-gray-400">
+                            <th className="border border-gray-400 p-2 text-center w-12">क्र०सं०</th>
+                            <th className="border border-gray-400 p-2 min-w-[200px]">कार्य का नाम</th>
+                            <th className="border border-gray-400 p-2 text-center min-w-[100px]">प्रस्तावित लम्बाई</th>
+                            <th className="border border-gray-400 p-2 text-center min-w-[85px]">विकास खण्ड</th>
+                            <th className="border border-gray-400 p-2 text-center min-w-[80px]">विभाग</th>
+                            <th className="border border-gray-400 p-2 text-center min-w-[70px]">वित्तीय वर्ष</th>
+                            <th className="border border-gray-400 p-2 text-center min-w-[95px]">कार्य की स्थिति</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredWorks.map((work, idx) => {
+                            const badge = getStatusBadge(work.status);
+                            const lengthText = getWorkLength(work);
+                            const blockText = getWorkBlock(work);
+                            const deptText = getWorkDepartment(work);
+                            const yearText = getWorkYear(work);
+
+                            return (
+                              <tr 
+                                key={work._id || idx}
+                                className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                              >
+                                <td className="border border-gray-400 p-2 text-center font-bold text-gray-700">
+                                  {idx + 1}
+                                </td>
+                                <td className="border border-gray-400 p-2 font-semibold text-gray-900 leading-snug">
+                                  {work.title}
+                                </td>
+                                <td className="border border-gray-400 p-2 text-center font-bold text-gray-800 whitespace-nowrap">
+                                  {lengthText}
+                                </td>
+                                <td className="border border-gray-400 p-2 text-center font-medium text-gray-800 whitespace-nowrap">
+                                  {blockText}
+                                </td>
+                                <td className="border border-gray-400 p-2 text-center font-bold text-gray-800 whitespace-nowrap">
+                                  {deptText}
+                                </td>
+                                <td className="border border-gray-400 p-2 text-center font-semibold text-gray-700 whitespace-nowrap">
+                                  {yearText}
+                                </td>
+                                <td className="border border-gray-400 p-2 text-center whitespace-nowrap font-bold">
+                                  <span 
+                                    className="inline-block px-1.5 py-0.5 rounded text-[10px]"
+                                    style={{
+                                      color: badge.printColor,
+                                      backgroundColor: badge.printBg
+                                    }}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* PDF Footer inside container */}
+                    <div className="mt-4 pt-3 border-t border-gray-300 flex items-center justify-between text-[11px] font-bold text-gray-600">
+                      <span>जन-हित में पारदर्शिता एवं समग्र विकास रिपोर्ट कार्ड</span>
+                      <span>कुल कार्य: {filteredWorks.length} | दिनांक: {new Date().toLocaleDateString('hi-IN')}</span>
                     </div>
                   </div>
-                );
-              })}
-
-              {/* Load More Button for Pagination */}
-              {visibleCount < filteredWorks.length && (
-                <div className="pt-2 pb-6 flex flex-col items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
-                    className="w-full py-3 px-4 rounded-xl text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 hover:opacity-95"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    <span>और कार्य लोड करें (Load More)</span>
-                    <span className="text-[11px] opacity-80 font-normal">
-                      (+{Math.min(PAGE_SIZE, filteredWorks.length - visibleCount)} और)
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVisibleCount(filteredWorks.length)}
-                    className="text-[11px] font-bold text-gray-500 hover:text-gray-800 transition-colors py-1"
-                  >
-                    सभी {filteredWorks.length} कार्य एक साथ दिखाएं (Show All)
-                  </button>
                 </div>
               )}
             </div>
@@ -727,6 +1140,144 @@ export default function DevelopmentPage() {
             </div>
           )}
 
+        </div>
+      </div>
+
+      {/* Hidden High-Definition Print Template for jsPDF Export (Matches Road Work Report Card PDF) */}
+      <div 
+        style={{ position: 'fixed', left: '-9999px', top: 0, width: '1000px', zIndex: -10 }}
+        aria-hidden="true"
+      >
+        <div 
+          ref={pdfPrintRef} 
+          className="bg-white p-8 text-black"
+          style={{ width: '1000px', minHeight: '600px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}
+        >
+          {/* Document Header - Exact layout as user's road report card */}
+          <div style={{ textAlign: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '16px' }}>
+            <h1 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: '900', color: '#dc2626' }}>
+              {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
+            </h1>
+            <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '800', color: '#7c2d12' }}>
+              {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
+            </h2>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '900', color: '#0f766e' }}>
+              सड़क एवं संपर्क मार्ग विकास कार्य — रिपोर्ट कार्ड
+            </h3>
+
+            {/* Summary Counters Banner */}
+            <div style={{ margin: '8px 0', fontSize: '16px', fontWeight: '900', color: '#dc2626' }}>
+              {filteredWorks.length} विकास कार्यों का विवरण
+            </div>
+            <div style={{ margin: '4px 0 12px 0', fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
+              <span style={{ color: '#15803d' }}>{statusStats.completed} कार्य पूर्ण</span>,{' '}
+              <span style={{ color: '#1d4ed8' }}>{statusStats.inProgress} कार्य प्रगति पर</span>,{' '}
+              <span style={{ color: '#7e22ce' }}>{statusStats.approved} कार्य स्वीकृत</span>,{' '}
+              <span style={{ color: '#dc2626' }}>प्रस्तावित {statusStats.proposed}</span>
+            </div>
+
+            {/* Major Work Categories */}
+            <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '8px', margin: '8px auto', maxWidth: '800px', textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', fontWeight: '900', color: '#b91c1c', marginBottom: '4px' }}>प्रमुख कार्य</div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                <span>🔹 सड़क का चौड़ीकरण एवं सुदृढ़ीकरण</span>
+                <span>🔹 ग्रामीण क्षेत्रों नवीन पिच रोड एवं सी.सी. रोड निर्माण</span>
+                <span>🔹 विशेष मरम्मत कार्य</span>
+                <span>🔹 इंटरलॉकिंग कार्य</span>
+              </div>
+            </div>
+
+            {/* Meta Information Bar (Blocks, Departments & Financial Years) */}
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px', marginTop: '10px', fontSize: '11px', lineHeight: '1.6', color: '#334155' }}>
+              <div><strong style={{ color: '#0891b2' }}>विकास खण्ड:</strong> रामपुर | रामनगर | मड़ियाहूँ</div>
+              <div><strong style={{ color: '#0f172a' }}>विभाग:</strong> लोक निर्माण विभाग (PWD) | मंडी परिषद | आर.एस. त्वरित | आर.एस. राज्यांश | PMGSY</div>
+              <div style={{ fontWeight: '800', color: '#c2410c' }}>
+                वित्तीय वर्ष 2022–23 से 2026–27 तक के कार्यों का संकलित विवरण
+              </div>
+            </div>
+          </div>
+
+          {/* Applied Filter Info Banner if Area / Search applied */}
+          {isAreaFilterActive && (
+            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px', padding: '6px 12px', marginBottom: '12px', fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>
+              चयनित क्षेत्र फ़िल्टर: {[
+                currentBlockNode?.name,
+                currentPanchayatNode?.name,
+                rawVillageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name
+              ].filter(Boolean).join(' ➔ ')}
+            </div>
+          )}
+
+          {/* Clean Printable Table - Exact 7 columns as road report card */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', textAlign: 'left', border: '1.5px solid #64748b' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1.5px solid #64748b' }}>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', width: '38px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>क्र0सं0</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 8px', fontWeight: '900', color: '#0f172a' }}>कार्य का नाम</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '90px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>प्रस्तावित लम्बाई</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '80px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>विकास खण्ड</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '85px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>विभाग</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '65px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>वित्तीय वर्ष</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '95px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>कार्य की स्थिति</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredWorks.map((work, idx) => {
+                const badge = getStatusBadge(work.status);
+                const lengthText = getWorkLength(work);
+                const blockText = getWorkBlock(work);
+                const deptText = getWorkDepartment(work);
+                const yearText = getWorkYear(work);
+
+                return (
+                  <tr 
+                    key={work._id || idx} 
+                    style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd' }}
+                  >
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', textAlign: 'center', fontWeight: 'bold', color: '#475569' }}>
+                      {idx + 1}
+                    </td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', fontWeight: '700', color: '#0f172a', lineHeight: '1.4' }}>
+                      {work.title}
+                    </td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
+                      {lengthText}
+                    </td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center', color: '#1e293b' }}>
+                      {blockText}
+                    </td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center', fontWeight: 'bold', color: '#0f172a' }}>
+                      {deptText}
+                    </td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center', fontWeight: '600', color: '#334155' }}>
+                      {yearText}
+                    </td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center' }}>
+                      <span 
+                        style={{ 
+                          display: 'inline-block',
+                          padding: '2px 6px', 
+                          borderRadius: '4px', 
+                          fontSize: '9.5px', 
+                          fontWeight: 'bold',
+                          color: badge.printColor || '#1e293b', 
+                          backgroundColor: badge.printBg || '#f1f5f9' 
+                        }}
+                      >
+                        {badge.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Document Footer */}
+          <div style={{ marginTop: '24px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8' }}>
+            <div>जन-सेवा एवं पारदर्शी विकास कार्यों का डिजिटल रिकॉर्ड</div>
+            <div>पृष्ठ 1 | कुल कार्य: {filteredWorks.length}</div>
+          </div>
         </div>
       </div>
 
