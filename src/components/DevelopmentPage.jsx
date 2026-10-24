@@ -34,7 +34,6 @@ export default function DevelopmentPage() {
   const initialCategory = location.state?.category || new URLSearchParams(location.search).get('category') || 'All';
   const [activeFilter, setActiveFilter] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState('');
-  const [works, setWorks] = useState([]);
   const [categories, setCategories] = useState(['All']);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('card'); // 'card' | 'pdf'
@@ -148,35 +147,39 @@ export default function DevelopmentPage() {
     setVillageSearch('');
   };
 
+  const [allWorks, setAllWorks] = useState([]);
+
   const isAreaFilterActive = Boolean(selectedBlockId || selectedPanchayatId || selectedVillageId);
 
+  // Fetch all works on mount
   useEffect(() => {
+    let isMounted = true;
     const fetchWorks = async () => {
       try {
         setIsLoading(true);
         const list = await api.getAllWorks().catch(() => []);
-        
+        if (!isMounted) return;
+
+        setAllWorks(list);
+
         // Dynamically extract unique categories from all works
         const dynamicCats = [
           'All',
           ...Array.from(new Set(list.map(w => (w.category || '').trim()).filter(Boolean)))
         ];
         setCategories(dynamicCats);
-
-        if (!activeFilter || activeFilter === 'All') {
-          setWorks(list);
-        } else {
-          setWorks(list.filter(w => (w.category || '').trim().toLowerCase() === activeFilter.trim().toLowerCase()));
-        }
       } catch (err) {
         console.warn('Error fetching works:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchWorks();
-  }, [activeFilter]);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Auto-scroll horizontal category tabs so next tabs become visible
   useEffect(() => {
@@ -197,9 +200,16 @@ export default function DevelopmentPage() {
     return () => clearInterval(timer);
   }, [categories.length]);
 
-  // Combined Area + Category + Search query filtering (Hindi + English)
-  const filteredWorks = works.filter((w) => {
-    // 1. Search Query Match (Supports Hindi and English transliteration)
+  // Combined Category + Area + Search query filtering (Hindi + English)
+  const filteredWorks = allWorks.filter((w) => {
+    // 1. Category Filter Match
+    if (activeFilter && activeFilter !== 'All') {
+      const itemCat = (w.category || '').trim().toLowerCase();
+      const selectedCat = activeFilter.trim().toLowerCase();
+      if (itemCat !== selectedCat) return false;
+    }
+
+    // 2. Search Query Match (Supports Hindi and English transliteration)
     if (searchQuery.trim()) {
       const areaObjName = w.areaId?.name || w.area?.name || '';
       const textMatch = (
@@ -310,28 +320,85 @@ export default function DevelopmentPage() {
     };
   };
 
+  // Helper to extract clean work title without tab-delimited columns and bullet symbols
+  const getWorkTitle = (w) => {
+    let raw = (w.title || '').trim();
+    if (!raw) return 'विकास कार्य';
+    if (raw.includes('\t')) {
+      const parts = raw.split('\t').map(s => s.trim()).filter(Boolean);
+      let titlePart = parts[0];
+      if ((titlePart === '•' || titlePart === '*') && parts.length > 1) {
+        titlePart = parts[1];
+      }
+      raw = titlePart || raw;
+    }
+    return raw.replace(/^[•*\s-]+/, '').trim();
+  };
+
   // Helper getters for Road & Development works
   const getWorkLength = (w) => {
     if (w.proposedLength) return String(w.proposedLength);
     if (w.length) return String(w.length);
-    // Extract from title/desc if contains किमी / km
-    const text = `${w.title || ''} ${w.description || ''}`;
-    const kmMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:किमी|कि०मी०|km|किलोमीटर)/i);
+    if (w.distance) return String(w.distance);
+
+    const raw = `${w.title || ''} ${w.description || ''}`;
+
+    // 1. If title contains tab characters, check if one part specifically contains distance/length
+    if ((w.title || '').includes('\t')) {
+      const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        const kmP = p.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:किमी[0०]?|कि०मी०|कि\.मी\.|km|किलोमीटर)$/i);
+        if (kmP) return `${kmP[1]} किमी०`;
+        const mP = p.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:मी[0०]?|मीटर|meter)$/i);
+        if (mP) return `${mP[1]} मी०`;
+        const crP = p.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:करोड़|करोड|लाख|cr)$/i);
+        if (crP) return p;
+      }
+    }
+
+    // 2. Extract kilometer pattern (किमी, किमी0, किमी०, कि०मी०, कि.मी., km, kilometer)
+    const kmMatch = raw.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:किमी[0०]?|कि०मी०|कि\.मी\.|km|किलोमीटर)/i);
     if (kmMatch) return `${kmMatch[1]} किमी०`;
-    const meterMatch = text.match(/([0-9]+)\s*(?:मी०|मीटर|meter)/i);
+
+    // 3. Extract meter pattern (मी, मी0, मी०, मीटर, meter)
+    const meterMatch = raw.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:मी[0०]?|मीटर|meter)/i);
     if (meterMatch) return `${meterMatch[1]} मी०`;
+
+    // 4. Extract crore / lakh / cr
+    const crMatch = raw.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:करोड़|करोड|लाख)/i);
+    if (crMatch) return crMatch[0];
+
     return w.budget ? `₹ ${w.budget}` : '-';
   };
 
   const getWorkDepartment = (w) => {
     if (w.department) return w.department;
     if (w.agency) return w.agency;
+
+    // Check tab-separated columns first
+    if ((w.title || '').includes('\t')) {
+      const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        const up = p.toUpperCase();
+        if (up === 'PWD' || up === 'पी०डब्ल्यू०डी' || up === 'पी०डब्लू०डी०' || up === 'लोक निर्माण') return 'PWD';
+        if (up.includes('PMGSY') || up.includes('पीएमजीएसवाई')) return 'आर०ई०एस० PMGSY';
+        if (up.includes('मंडी') || up.includes('MANDI')) return 'मंडी परिषद';
+        if (up.includes('त्वरित')) return 'आर०ई०एस० त्वरित';
+        if (up.includes('राज्यांश') || up.includes('राज्यान्श')) return 'आर०ई०एस० राज्यांश';
+        if (up.includes('जिलांश')) return 'आर०ई०एस० जिलांश';
+        if (up.includes('निधि')) return 'विधायक निधि';
+        if (up.includes('बिजनेस प्लान')) return 'बिजनेस प्लान';
+        if (up === 'RES' || up === 'आर०ई०एस' || up === 'आर0ई0एस0') return 'आर०ई०एस०';
+      }
+    }
+
     const text = `${w.title || ''} ${w.description || ''}`.toUpperCase();
     if (text.includes('PWD') || text.includes('पी०डब्ल्यू०डी') || text.includes('लोक निर्माण')) return 'PWD';
     if (text.includes('मंडी') || text.includes('MANDI')) return 'मंडी परिषद';
     if (text.includes('PMGSY') || text.includes('पीएमजीएसवाई')) return 'आर०ई०एस० PMGSY';
     if (text.includes('त्वरित') || text.includes('आर०ई०एस० त्वरित') || text.includes('RES TVARIT')) return 'आर०ई०एस० त्वरित';
     if (text.includes('राज्यांश') || text.includes('राज्यान्श')) return 'आर०ई०एस० राज्यांश';
+    if (text.includes('जिलांश')) return 'आर०ई०एस० जिलांश';
     if (text.includes('RES') || text.includes('आर०ई०एस')) return 'आर०ई०एस०';
     return w.category || 'PWD';
   };
@@ -339,9 +406,22 @@ export default function DevelopmentPage() {
   const getWorkYear = (w) => {
     if (w.financialYear) return w.financialYear;
     if (w.year) return w.year;
+
+    // Check tab-separated columns
+    if ((w.title || '').includes('\t')) {
+      const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        const yMatch = p.match(/\b(2[0-9][-–/][0-9]{2})\b/);
+        if (yMatch) return yMatch[1];
+      }
+    }
+
     const text = `${w.title || ''} ${w.description || ''}`;
     const yrMatch = text.match(/20(2[0-9])[-–/](2[0-9])/);
     if (yrMatch) return `${yrMatch[1]}-${yrMatch[2]}`;
+    const shortYrMatch = text.match(/\b(2[0-9][-–/][0-9]{2})\b/);
+    if (shortYrMatch) return shortYrMatch[1];
+
     if (w.startDate) {
       const yr = new Date(w.startDate).getFullYear().toString().slice(-2);
       const nextYr = (Number(yr) + 1).toString();
@@ -351,14 +431,118 @@ export default function DevelopmentPage() {
   };
 
   const getWorkBlock = (w) => {
-    if (w.block) return w.block;
-    if (w.areaId?.name) return w.areaId.name;
-    if (w.area?.name) return w.area.name;
-    const loc = w.location || '';
-    if (loc.includes('रामपुर') || loc.toLowerCase().includes('rampur')) return 'रामपुर';
-    if (loc.includes('रामनगर') || loc.toLowerCase().includes('ramnagar')) return 'रामनगर';
-    if (loc.includes('मड़ियाहूँ') || loc.includes('मडियाहू') || loc.toLowerCase().includes('madiyahu')) return 'मड़ियाहूँ';
-    return loc || 'मड़ियाहूँ';
+    let block = w.block || '';
+    let panchayat = w.gramPanchayat || w.panchayat || '';
+
+    // If area hierarchy info exists
+    if (!block && w.areaId?.parent?.name) {
+      block = w.areaId.parent.name;
+      panchayat = w.areaId.name;
+    } else if (!panchayat && w.areaId?.name && w.areaId.name !== block) {
+      panchayat = w.areaId.name;
+    }
+
+    // Check tab-separated parts for known block names
+    if (!block && (w.title || '').includes('\t')) {
+      const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        if (p.includes('रामपुर') || p.toLowerCase().includes('rampur')) { block = 'रामपुर'; break; }
+        if (p.includes('रामनगर') || p.toLowerCase().includes('ramnagar')) { block = 'रामनगर'; break; }
+        if (p.includes('मड़ियाहूँ') || p.includes('मडियाहू') || p.toLowerCase().includes('madiyahu')) { block = 'मड़ियाहूँ'; break; }
+      }
+    }
+
+    if (!block) {
+      const loc = w.location || '';
+      if (loc.includes('रामपुर') || loc.toLowerCase().includes('rampur')) block = 'रामपुर';
+      else if (loc.includes('रामनगर') || loc.toLowerCase().includes('ramnagar')) block = 'रामनगर';
+      else if (loc.includes('मड़ियाहूँ') || loc.includes('मडियाहू') || loc.toLowerCase().includes('madiyahu')) block = 'मड़ियाहूँ';
+      else block = loc || 'मड़ियाहूँ';
+    }
+
+    if (panchayat && panchayat !== block) {
+      return `${block} / ${panchayat}`;
+    }
+    return block;
+  };
+
+  // Dynamic Header Info based on active category filter & current works
+  const getBannerDynamicInfo = () => {
+    const isAll = !activeFilter || activeFilter === 'All';
+    const cat = String(activeFilter || '').toLowerCase();
+
+    // 1. Top Super Header (Tag)
+    let superTitle = 'दीर्घ सेतु एवं लघु सेतु निर्माण कार्य';
+    if (!isAll) {
+      if (cat.includes('चैकडैम') || cat.includes('चेकडैम')) {
+        superTitle = 'चेकडैम एवं लघु सिंचाई निर्माण कार्य';
+      } else if (cat.includes('पुल') || cat.includes('सेतु')) {
+        superTitle = 'दीर्घ सेतु, पुलिया एवं बाक्स कलवर्ट निर्माण कार्य';
+      } else if (cat.includes('road') || cat.includes('रोड') || cat.includes('सड़क')) {
+        superTitle = 'सड़क एवं संपर्क मार्ग निर्माण कार्य';
+      } else if (cat.includes('इंटरलाकिंग') || cat.includes('सीसी')) {
+        superTitle = 'ग्रामीण इंटरलॉकिंग एवं सी०सी० रोड निर्माण कार्य';
+      } else if (cat.includes('लाइट') || cat.includes('विद्युत') || cat.includes('light')) {
+        superTitle = 'विद्युतीकरण, ट्रांसफार्मर एवं हाईमास्ट लाइट कार्य';
+      } else if (cat.includes('जल') || cat.includes('water')) {
+        superTitle = 'हर घर जल एवं शुद्ध पेयजल योजना कार्य';
+      } else if (cat.includes('स्वास्थ्य') || cat.includes('health')) {
+        superTitle = 'स्वास्थ्य एवं चिकित्सा सेवा विकास कार्य';
+      } else {
+        superTitle = `${activeFilter} विकास कार्य`;
+      }
+    }
+
+    // 2. Department & Progress Subtitle
+    let deptSubtitle = 'लघु सिंचाई विभाग के अंतर्गत चेकडैम एवं तालाब निर्माण कार्यों की प्रगति';
+    let deptName = 'विकास विभाग';
+    if (!isAll) {
+      if (cat.includes('चैकडैम') || cat.includes('चेकडैम')) {
+        deptSubtitle = 'लघु सिंचाई विभाग के अंतर्गत चेकडैम एवं तालाब निर्माण कार्यों की प्रगति';
+        deptName = 'लघु सिंचाई विभाग';
+      } else if (cat.includes('road') || cat.includes('रोड') || cat.includes('सड़क') || cat.includes('पुल') || cat.includes('सेतु')) {
+        deptSubtitle = 'लोक निर्माण विभाग (PWD) एवं अन्य विभागों के अंतर्गत निर्माण कार्यों की प्रगति';
+        deptName = 'पीडब्ल्यूडी (PWD) विभाग एवं अन्य';
+      } else if (cat.includes('लाइट') || cat.includes('विद्युत')) {
+        deptSubtitle = 'विद्युत विभाग एवं स्थानीय विकास निधि के अंतर्गत कार्यों की प्रगति';
+        deptName = 'विद्युत विभाग';
+      } else if (cat.includes('जल') || cat.includes('water')) {
+        deptSubtitle = 'हर घर जल एवं शुद्ध पेयजल योजना के अंतर्गत कार्यों की प्रगति';
+        deptName = 'जल निगम एवं पेयजल विभाग';
+      } else {
+        deptSubtitle = `${activeFilter} के अंतर्गत विधानसभा क्षेत्र में विकास कार्यों की प्रगति`;
+        deptName = `${activeFilter} विभाग`;
+      }
+    }
+
+    // 3. Dynamic Financial Year Session (Extracted from current works or default)
+    const yearsFound = new Set();
+    filteredWorks.forEach(w => {
+      const yr = getWorkYear(w);
+      if (yr && yr !== 'उल्लेखित नहीं') {
+        yearsFound.add(yr);
+      }
+    });
+
+    let yearSessionText = 'वित्तीय वर्ष 2023-24 एवं 2024-25';
+    if (yearsFound.size > 0) {
+      const sortedYears = Array.from(yearsFound).sort();
+      if (sortedYears.length === 1) {
+        yearSessionText = `वित्तीय वर्ष ${sortedYears[0]}`;
+      } else if (sortedYears.length === 2) {
+        yearSessionText = `वित्तीय वर्ष ${sortedYears[0]} एवं ${sortedYears[1]}`;
+      } else if (sortedYears.length > 2) {
+        yearSessionText = `वित्तीय वर्ष ${sortedYears[0]} से ${sortedYears[sortedYears.length - 1]}`;
+      }
+    }
+
+    return {
+      superTitle,
+      deptSubtitle,
+      deptName,
+      yearSessionText,
+      categoryTitle: isAll ? 'समग्र विकास कार्य' : activeFilter
+    };
   };
 
   // Status statistics for report card
@@ -381,6 +565,8 @@ export default function DevelopmentPage() {
       return !s.includes('complete') && !s.includes('पूर्ण') && !s.includes('progress') && !s.includes('ongoing') && !s.includes('प्रगति') && !s.includes('approve') && !s.includes('स्वीकृत');
     }).length,
   };
+
+  const bannerInfo = getBannerDynamicInfo();
 
   // Download filtered works as PDF with formatted table & metadata
   const handleDownloadPdf = async () => {
@@ -943,7 +1129,7 @@ export default function DevelopmentPage() {
                           >
                             {work.category || 'Development'}
                           </span>
-                          <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{work.title}</h3>
+                          <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{getWorkTitle(work)}</h3>
                           <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.areaId?.name || work.area?.name || work.location || 'Local Area'}</p>
                           
                           {/* Badge */}
@@ -1007,74 +1193,84 @@ export default function DevelopmentPage() {
                   </div>
 
                   {/* Report Card Page Container */}
-                  <div className="w-full bg-[#fdfdfd] border border-gray-300 rounded-xl p-4 sm:p-6 shadow-xs overflow-x-auto">
-                    {/* Header: Leader, Area, Title */}
-                    <div className="text-center pb-4 border-b border-gray-200">
-                      <h2 className="text-lg sm:text-xl font-black text-[#dc2626] tracking-wide mb-0.5">
-                        {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
-                      </h2>
-                      <h3 className="text-sm sm:text-base font-extrabold text-[#7c2d12] mb-1">
-                        {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
-                      </h3>
-                      <h4 className="text-base sm:text-lg font-black text-[#0f766e] flex items-center justify-center gap-2">
-                        <span>सड़क एवं संपर्क मार्ग विकास कार्य — रिपोर्ट कार्ड</span>
-                      </h4>
-
-                      {/* Summary Counters Banner */}
-                      <div className="mt-3">
-                        <div className="text-sm font-extrabold text-[#dc2626]">
-                          {filteredWorks.length} विकास कार्यों का विवरण
-                        </div>
-                        <div className="text-xs font-bold text-gray-700 mt-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4">
-                          <span className="text-emerald-700 font-black">{statusStats.completed} कार्य पूर्ण</span>
-                          <span>•</span>
-                          <span className="text-blue-700 font-black">{statusStats.inProgress} कार्य प्रगति पर</span>
-                          <span>•</span>
-                          <span className="text-purple-700 font-black">{statusStats.approved} कार्य स्वीकृत</span>
-                          <span>•</span>
-                          <span className="text-rose-700 font-black">प्रस्तावित {statusStats.proposed}</span>
-                        </div>
-                      </div>
-
-                      {/* Major Work Categories Pills */}
-                      <div className="mt-3 pt-3 border-t border-dashed border-gray-200 flex flex-col items-center gap-1 text-[11px] font-bold text-gray-800">
-                        <span className="text-xs font-black text-rose-700">प्रमुख कार्य</span>
-                        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-gray-700">
-                          <span>🔹 सड़क का चौड़ीकरण एवं सुदृढ़ीकरण</span>
-                          <span>🔹 ग्रामीण क्षेत्रों में नवीन पिच रोड एवं सी.सी. रोड निर्माण</span>
-                          <span>🔹 विशेष मरम्मत कार्य</span>
-                          <span>🔹 इंटरलॉकिंग कार्य</span>
-                        </div>
-                      </div>
-
-                      {/* Meta Information Bar (Blocks, Departments & Financial Years) */}
-                      <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-2 text-[11px] font-semibold text-gray-700 flex flex-col gap-1 text-center">
-                        <div>
-                          <strong className="text-cyan-800">विकास खण्ड:</strong> रामपुर | रामनगर | मड़ियाहूँ
-                        </div>
-                        <div>
-                          <strong className="text-gray-900">विभाग:</strong> लोक निर्माण विभाग (PWD) | मंडी परिषद | आर.ई.एस. त्वरित | आर.ई.एस. राज्यांश | PMGSY
-                        </div>
-                        <div className="text-amber-800 font-bold">
-                          वित्तीय वर्ष 2022–23 से 2026–27 तक के कार्यों का संकलित विवरण
-                        </div>
-                      </div>
+                  <div className="w-full bg-white border border-gray-300 rounded-2xl shadow-sm overflow-hidden text-[#1e293b]">
+                    {/* Top Official Banner Graphic with Leaders Name, Designation & Location */}
+                    <div className="w-full bg-white border-b-2 border-[#004b9e] overflow-hidden relative select-none">
+                      <img 
+                        src="/pdfimages/pdf-banner.png" 
+                        alt="Official Development Report Card Banner"
+                        className="w-full h-auto object-contain block"
+                      />
                     </div>
 
-                    {/* PDF-Style Table */}
-                    <div className="mt-4 overflow-x-auto">
-                      <table className="w-full border-collapse border border-gray-400 text-xs text-left">
-                        <thead>
-                          <tr className="bg-gray-100 text-gray-900 font-black text-[10px] uppercase border-b-2 border-gray-400">
-                            <th className="border border-gray-400 p-2 text-center w-12">क्र०सं०</th>
-                            <th className="border border-gray-400 p-2 min-w-[200px]">कार्य का नाम</th>
-                            <th className="border border-gray-400 p-2 text-center min-w-[100px]">प्रस्तावित लम्बाई</th>
-                            <th className="border border-gray-400 p-2 text-center min-w-[85px]">विकास खण्ड</th>
-                            <th className="border border-gray-400 p-2 text-center min-w-[80px]">विभाग</th>
-                            <th className="border border-gray-400 p-2 text-center min-w-[70px]">वित्तीय वर्ष</th>
-                            <th className="border border-gray-400 p-2 text-center min-w-[95px]">कार्य की स्थिति</th>
-                          </tr>
-                        </thead>
+                    <div className="p-4 sm:p-6 bg-white overflow-x-auto">
+                      {/* Dynamic Header: Leader, Area, Dynamic Title based on Filter */}
+                      <div className="text-center pb-4 border-b border-gray-200">
+                        <h2 className="text-lg sm:text-xl font-black text-[#dc2626] tracking-wide mb-0.5">
+                          {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
+                        </h2>
+                        <h3 className="text-sm sm:text-base font-extrabold text-[#7c2d12] mb-1">
+                          {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
+                        </h3>
+                        <h4 className="text-base sm:text-lg font-black text-[#0f766e] flex items-center justify-center gap-2">
+                          <span>{bannerInfo.superTitle} — रिपोर्ट कार्ड</span>
+                        </h4>
+
+                        {/* Summary Counters Banner */}
+                        <div className="mt-3">
+                          <div className="text-sm font-extrabold text-[#dc2626]">
+                            {filteredWorks.length} विकास कार्यों का विवरण
+                          </div>
+                          <div className="text-xs font-bold text-gray-700 mt-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+                            <span className="text-emerald-700 font-black">{statusStats.completed} कार्य पूर्ण</span>
+                            <span>•</span>
+                            <span className="text-blue-700 font-black">{statusStats.inProgress} कार्य प्रगति पर</span>
+                            <span>•</span>
+                            <span className="text-purple-700 font-black">{statusStats.approved} कार्य स्वीकृत</span>
+                            <span>•</span>
+                            <span className="text-rose-700 font-black">प्रस्तावित {statusStats.proposed}</span>
+                          </div>
+                        </div>
+
+                        {/* Major Work Categories Pills */}
+                        <div className="mt-3 pt-3 border-t border-dashed border-gray-200 flex flex-col items-center gap-1 text-[11px] font-bold text-gray-800">
+                          <span className="text-xs font-black text-rose-700">प्रमुख कार्य</span>
+                          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-gray-700">
+                            <span>🔹 सड़क का चौड़ीकरण एवं सुदृढ़ीकरण</span>
+                            <span>🔹 ग्रामीण क्षेत्रों में नवीन पिच रोड एवं सी.सी. रोड निर्माण</span>
+                            <span>🔹 विशेष मरम्मत कार्य</span>
+                            <span>🔹 इंटरलॉकिंग कार्य</span>
+                          </div>
+                        </div>
+
+                        {/* Meta Information Bar (Blocks, Departments & Financial Years) */}
+                        <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-2 text-[11px] font-semibold text-gray-700 flex flex-col gap-1 text-center">
+                          <div>
+                            <strong className="text-cyan-800">विकास खण्ड:</strong> रामपुर | रामनगर | मड़ियाहूँ
+                          </div>
+                          <div>
+                            <strong className="text-gray-900">विभाग:</strong> {bannerInfo.deptName || 'लोक निर्माण विभाग (PWD) | मंडी परिषद | आर.ई.एस. त्वरित | आर.ई.एस. राज्यांश | PMGSY'}
+                          </div>
+                          <div className="text-amber-800 font-bold">
+                            {bannerInfo.yearSessionText} के कार्यों का संकलित विवरण
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* PDF-Style Table */}
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full border-collapse border border-gray-400 text-xs text-left">
+                          <thead>
+                            <tr className="bg-gray-100 text-gray-900 font-black text-[10px] uppercase border-b-2 border-gray-400">
+                              <th className="border border-gray-400 p-2 text-center w-12">क्र०सं०</th>
+                              <th className="border border-gray-400 p-2 min-w-[200px]">कार्य का नाम</th>
+                              <th className="border border-gray-400 p-2 text-center min-w-[100px]">प्रस्तावित लम्बाई</th>
+                              <th className="border border-gray-400 p-2 text-center min-w-[110px]">विकास खण्ड / ग्राम पंचायत</th>
+                              <th className="border border-gray-400 p-2 text-center min-w-[80px]">विभाग</th>
+                              <th className="border border-gray-400 p-2 text-center min-w-[70px]">वित्तीय वर्ष</th>
+                              <th className="border border-gray-400 p-2 text-center min-w-[95px]">कार्य की स्थिति</th>
+                            </tr>
+                          </thead>
                         <tbody>
                           {filteredWorks.map((work, idx) => {
                             const badge = getStatusBadge(work.status);
@@ -1092,7 +1288,7 @@ export default function DevelopmentPage() {
                                   {idx + 1}
                                 </td>
                                 <td className="border border-gray-400 p-2 font-semibold text-gray-900 leading-snug">
-                                  {work.title}
+                                  {getWorkTitle(work)}
                                 </td>
                                 <td className="border border-gray-400 p-2 text-center font-bold text-gray-800 whitespace-nowrap">
                                   {lengthText}
@@ -1131,7 +1327,8 @@ export default function DevelopmentPage() {
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
             </div>
           ) : (
             <div className="py-12 text-center bg-white rounded-2xl border border-dashed border-gray-200 p-6">
@@ -1150,77 +1347,87 @@ export default function DevelopmentPage() {
       >
         <div 
           ref={pdfPrintRef} 
-          className="bg-white p-8 text-black"
+          className="bg-white text-black"
           style={{ width: '1000px', minHeight: '600px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}
         >
-          {/* Document Header - Exact layout as user's road report card */}
-          <div style={{ textAlign: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '16px' }}>
-            <h1 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: '900', color: '#dc2626' }}>
-              {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
-            </h1>
-            <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '800', color: '#7c2d12' }}>
-              {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
-            </h2>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '900', color: '#0f766e' }}>
-              सड़क एवं संपर्क मार्ग विकास कार्य — रिपोर्ट कार्ड
-            </h3>
-
-            {/* Summary Counters Banner */}
-            <div style={{ margin: '8px 0', fontSize: '16px', fontWeight: '900', color: '#dc2626' }}>
-              {filteredWorks.length} विकास कार्यों का विवरण
-            </div>
-            <div style={{ margin: '4px 0 12px 0', fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
-              <span style={{ color: '#15803d' }}>{statusStats.completed} कार्य पूर्ण</span>,{' '}
-              <span style={{ color: '#1d4ed8' }}>{statusStats.inProgress} कार्य प्रगति पर</span>,{' '}
-              <span style={{ color: '#7e22ce' }}>{statusStats.approved} कार्य स्वीकृत</span>,{' '}
-              <span style={{ color: '#dc2626' }}>प्रस्तावित {statusStats.proposed}</span>
-            </div>
-
-            {/* Major Work Categories */}
-            <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '8px', margin: '8px auto', maxWidth: '800px', textAlign: 'center' }}>
-              <div style={{ fontSize: '13px', fontWeight: '900', color: '#b91c1c', marginBottom: '4px' }}>प्रमुख कार्य</div>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                <span>🔹 सड़क का चौड़ीकरण एवं सुदृढ़ीकरण</span>
-                <span>🔹 ग्रामीण क्षेत्रों नवीन पिच रोड एवं सी.सी. रोड निर्माण</span>
-                <span>🔹 विशेष मरम्मत कार्य</span>
-                <span>🔹 इंटरलॉकिंग कार्य</span>
-              </div>
-            </div>
-
-            {/* Meta Information Bar (Blocks, Departments & Financial Years) */}
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px', marginTop: '10px', fontSize: '11px', lineHeight: '1.6', color: '#334155' }}>
-              <div><strong style={{ color: '#0891b2' }}>विकास खण्ड:</strong> रामपुर | रामनगर | मड़ियाहूँ</div>
-              <div><strong style={{ color: '#0f172a' }}>विभाग:</strong> लोक निर्माण विभाग (PWD) | मंडी परिषद | आर.एस. त्वरित | आर.एस. राज्यांश | PMGSY</div>
-              <div style={{ fontWeight: '800', color: '#c2410c' }}>
-                वित्तीय वर्ष 2022–23 से 2026–27 तक के कार्यों का संकलित विवरण
-              </div>
-            </div>
+          {/* Top Full Banner Graphic with Leader Designation & Location */}
+          <div style={{ width: '1000px', backgroundColor: '#ffffff', borderBottom: '2px solid #004b9e', overflow: 'hidden', position: 'relative' }}>
+            <img 
+              src="/pdfimages/pdf-banner.png" 
+              alt="Official Development Report Card Banner"
+              style={{ width: '1000px', height: 'auto', display: 'block' }}
+            />
           </div>
 
-          {/* Applied Filter Info Banner if Area / Search applied */}
-          {isAreaFilterActive && (
-            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px', padding: '6px 12px', marginBottom: '12px', fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>
-              चयनित क्षेत्र फ़िल्टर: {[
-                currentBlockNode?.name,
-                currentPanchayatNode?.name,
-                rawVillageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name
-              ].filter(Boolean).join(' ➔ ')}
-            </div>
-          )}
+          <div style={{ padding: '24px 32px 32px 32px' }}>
+            {/* Document Header - Exact layout as user's road report card */}
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '16px' }}>
+              <h1 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: '900', color: '#dc2626' }}>
+                {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
+              </h1>
+              <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '800', color: '#7c2d12' }}>
+                {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
+              </h2>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '900', color: '#0f766e' }}>
+                {bannerInfo.superTitle} — रिपोर्ट कार्ड
+              </h3>
 
-          {/* Clean Printable Table - Exact 7 columns as road report card */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', textAlign: 'left', border: '1.5px solid #64748b' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1.5px solid #64748b' }}>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', width: '38px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>क्र0सं0</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 8px', fontWeight: '900', color: '#0f172a' }}>कार्य का नाम</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '90px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>प्रस्तावित लम्बाई</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '80px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>विकास खण्ड</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '85px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>विभाग</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '65px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>वित्तीय वर्ष</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '95px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>कार्य की स्थिति</th>
-              </tr>
-            </thead>
+              {/* Summary Counters Banner */}
+              <div style={{ margin: '8px 0', fontSize: '16px', fontWeight: '900', color: '#dc2626' }}>
+                {filteredWorks.length} विकास कार्यों का विवरण
+              </div>
+              <div style={{ margin: '4px 0 12px 0', fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
+                <span style={{ color: '#15803d' }}>{statusStats.completed} कार्य पूर्ण</span>,{' '}
+                <span style={{ color: '#1d4ed8' }}>{statusStats.inProgress} कार्य प्रगति पर</span>,{' '}
+                <span style={{ color: '#7e22ce' }}>{statusStats.approved} कार्य स्वीकृत</span>,{' '}
+                <span style={{ color: '#dc2626' }}>प्रस्तावित {statusStats.proposed}</span>
+              </div>
+
+              {/* Major Work Categories */}
+              <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '8px', margin: '8px auto', maxWidth: '800px', textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', fontWeight: '900', color: '#b91c1c', marginBottom: '4px' }}>प्रमुख कार्य</div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                  <span>🔹 सड़क का चौड़ीकरण एवं सुदृढ़ीकरण</span>
+                  <span>🔹 ग्रामीण क्षेत्रों नवीन पिच रोड एवं सी.सी. रोड निर्माण</span>
+                  <span>🔹 विशेष मरम्मत कार्य</span>
+                  <span>🔹 इंटरलॉकिंग कार्य</span>
+                </div>
+              </div>
+
+              {/* Meta Information Bar (Blocks, Departments & Financial Years) */}
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px', marginTop: '10px', fontSize: '11px', lineHeight: '1.6', color: '#334155' }}>
+                <div><strong style={{ color: '#0891b2' }}>विकास खण्ड:</strong> रामपुर | रामनगर | मड़ियाहूँ</div>
+                <div><strong style={{ color: '#0f172a' }}>विभाग:</strong> {bannerInfo.deptName || 'लोक निर्माण विभाग (PWD) | मंडी परिषद | आर.एस. त्वरित | आर.एस. राज्यांश | PMGSY'}</div>
+                <div style={{ fontWeight: '800', color: '#c2410c' }}>
+                  {bannerInfo.yearSessionText} के कार्यों का संकलित विवरण
+                </div>
+              </div>
+            </div>
+
+            {/* Applied Filter Info Banner if Area / Search applied */}
+            {isAreaFilterActive && (
+              <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px', padding: '6px 12px', marginBottom: '12px', fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>
+                चयनित क्षेत्र फ़िल्टर: {[
+                  currentBlockNode?.name,
+                  currentPanchayatNode?.name,
+                  rawVillageOptions.find(v => String(v._id || v.id) === String(selectedVillageId))?.name
+                ].filter(Boolean).join(' ➔ ')}
+              </div>
+            )}
+
+            {/* Clean Printable Table - Exact 7 columns as road report card */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', textAlign: 'left', border: '1.5px solid #64748b' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1.5px solid #64748b' }}>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', width: '38px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>क्र0सं0</th>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 8px', fontWeight: '900', color: '#0f172a' }}>कार्य का नाम</th>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '90px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>प्रस्तावित लम्बाई</th>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '95px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>विकास खण्ड / ग्राम पंचायत</th>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '85px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>विभाग</th>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '65px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>वित्तीय वर्ष</th>
+                  <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', width: '95px', textAlign: 'center', fontWeight: '900', color: '#0f172a' }}>कार्य की स्थिति</th>
+                </tr>
+              </thead>
             <tbody>
               {filteredWorks.map((work, idx) => {
                 const badge = getStatusBadge(work.status);
@@ -1238,7 +1445,7 @@ export default function DevelopmentPage() {
                       {idx + 1}
                     </td>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', fontWeight: '700', color: '#0f172a', lineHeight: '1.4' }}>
-                      {work.title}
+                      {getWorkTitle(work)}
                     </td>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
                       {lengthText}
@@ -1280,9 +1487,10 @@ export default function DevelopmentPage() {
           </div>
         </div>
       </div>
-
-      <BottomNav />
     </div>
+
+    <BottomNav />
+  </div>
   );
 }
 
