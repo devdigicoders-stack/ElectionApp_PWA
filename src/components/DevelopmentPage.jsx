@@ -320,19 +320,39 @@ export default function DevelopmentPage() {
     };
   };
 
-  // Helper to extract clean work title without tab-delimited columns and bullet symbols
-  const getWorkTitle = (w) => {
+  // Helper to split works that contain multiple items in title/description
+  const getWorkSubItems = (w) => {
     let raw = (w.title || '').trim();
-    if (!raw) return 'विकास कार्य';
-    if (raw.includes('\t')) {
-      const parts = raw.split('\t').map(s => s.trim()).filter(Boolean);
-      let titlePart = parts[0];
-      if ((titlePart === '•' || titlePart === '*') && parts.length > 1) {
-        titlePart = parts[1];
-      }
-      raw = titlePart || raw;
+    if (!raw) return ['विकास कार्य'];
+
+    // If title has bullets • or tab-bullets or newlines
+    if (raw.includes('•') || raw.includes('\n')) {
+      const parts = raw
+        .split(/(?:•\s*|\t\s*•\s*|(?:\r?\n)+)/)
+        .map(s => s.trim().replace(/^[•*\s-]+/, '').trim())
+        .filter(Boolean);
+      
+      const cleanParts = parts.filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
+      if (cleanParts.length > 0) return cleanParts;
     }
-    return raw.replace(/^[•*\s-]+/, '').trim();
+
+    // If title has tab characters
+    if (raw.includes('\t')) {
+      const parts = raw.split('\t').map(s => s.trim().replace(/^[•*\s-]+/, '').trim()).filter(Boolean);
+      const cleanParts = parts.filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
+      if (cleanParts.length > 0) return cleanParts;
+    }
+
+    return [raw.replace(/^[•*\s-]+/, '').trim() || 'विकास कार्य'];
+  };
+
+  // Helper to extract clean work title
+  const getWorkTitle = (w) => {
+    const items = getWorkSubItems(w);
+    if (items.length > 1) {
+      return items.map((it, idx) => `${idx + 1}. ${it}`).join(' | ');
+    }
+    return items[0] || (w.title || 'विकास कार्य').replace(/^[•*\s-]+/, '').trim();
   };
 
   // Helper getters for Road & Development works
@@ -430,40 +450,85 @@ export default function DevelopmentPage() {
     return '25-26';
   };
 
+  // Build a lookup map of Area Tree for fast and accurate hierarchy lookup
+  const areaHierarchyMap = React.useMemo(() => {
+    const map = new Map();
+    const traverse = (node, parentBlockName = '', parentPanchayatName = '') => {
+      if (!node) return;
+      const id = String(node._id || node.id);
+      const rawName = String(node.name || '').trim();
+      const match = rawName.match(/\((.*?)\)/);
+      const cleanName = match ? match[1].trim() : rawName;
+
+      let currentBlock = parentBlockName;
+      let currentPanchayat = parentPanchayatName;
+
+      // Determine level based on depth or node attributes
+      if (!parentBlockName) {
+        currentBlock = cleanName;
+      } else if (!parentPanchayatName) {
+        currentPanchayat = cleanName;
+      }
+
+      map.set(id, {
+        name: cleanName,
+        block: currentBlock,
+        panchayat: currentPanchayat,
+        fullChain: [currentBlock, currentPanchayat].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' / ')
+      });
+
+      if (Array.isArray(node.children)) {
+        node.children.forEach(child => traverse(child, currentBlock, currentPanchayat));
+      }
+    };
+
+    (areaTreeData.tree || []).forEach(rootNode => traverse(rootNode));
+    return map;
+  }, [areaTreeData.tree]);
+
   const getWorkBlock = (w) => {
+    // 1. Check if areaId matches tree hierarchy
+    const aId = String(w.areaId?._id || w.areaId?.id || (typeof w.areaId === 'string' ? w.areaId : '') || w.area?._id || w.area?.id || '');
+    if (aId && areaHierarchyMap.has(aId)) {
+      const h = areaHierarchyMap.get(aId);
+      if (h.fullChain) return h.fullChain;
+    }
+
+    // 2. Check if work has direct block and gramPanchayat properties
     let block = w.block || '';
     let panchayat = w.gramPanchayat || w.panchayat || '';
 
-    // If area hierarchy info exists
-    if (!block && w.areaId?.parent?.name) {
+    if (w.areaId?.parent?.name) {
       block = w.areaId.parent.name;
       panchayat = w.areaId.name;
-    } else if (!panchayat && w.areaId?.name && w.areaId.name !== block) {
-      panchayat = w.areaId.name;
+    } else if (w.areaId?.name && typeof w.areaId.name === 'string') {
+      const aName = w.areaId.name.trim();
+      const m = aName.match(/\((.*?)\)/);
+      const cName = m ? m[1].trim() : aName;
+      if (!block) block = cName;
     }
 
-    // Check tab-separated parts for known block names
-    if (!block && (w.title || '').includes('\t')) {
-      const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
-      for (const p of parts) {
-        if (p.includes('रामपुर') || p.toLowerCase().includes('rampur')) { block = 'रामपुर'; break; }
-        if (p.includes('रामनगर') || p.toLowerCase().includes('ramnagar')) { block = 'रामनगर'; break; }
-        if (p.includes('मड़ियाहूँ') || p.includes('मडियाहू') || p.toLowerCase().includes('madiyahu')) { block = 'मड़ियाहूँ'; break; }
-      }
+    // 3. Scan title and location for explicit Block & Panchayat keywords
+    const searchContext = `${w.location || ''} ${w.title || ''}`;
+    if (!block || block === 'मड़ियाहूँ' || block === 'Constituency') {
+      if (searchContext.includes('रामपुर') || searchContext.toLowerCase().includes('rampur')) block = 'रामपुर';
+      else if (searchContext.includes('रामनगर') || searchContext.toLowerCase().includes('ramnagar')) block = 'रामनगर';
+      else if (searchContext.includes('बरसठी') || searchContext.toLowerCase().includes('barsathi')) block = 'बरसठी';
+      else if (searchContext.includes('मड़ियाहूँ') || searchContext.includes('मडियाहू') || searchContext.toLowerCase().includes('madiyahu')) block = 'मड़ियाहूँ';
     }
 
-    if (!block) {
-      const loc = w.location || '';
-      if (loc.includes('रामपुर') || loc.toLowerCase().includes('rampur')) block = 'रामपुर';
-      else if (loc.includes('रामनगर') || loc.toLowerCase().includes('ramnagar')) block = 'रामनगर';
-      else if (loc.includes('मड़ियाहूँ') || loc.includes('मडियाहू') || loc.toLowerCase().includes('madiyahu')) block = 'मड़ियाहूँ';
-      else block = loc || 'मड़ियाहूँ';
+    if (w.location && w.location.trim()) {
+      const locClean = w.location.replace(/जनपद.*$/, '').trim();
+      if (!block) return locClean;
+      if (panchayat && panchayat !== block) return `${block} / ${panchayat}`;
+      if (!locClean.includes(block)) return `${block} / ${locClean}`;
+      return locClean;
     }
 
     if (panchayat && panchayat !== block) {
       return `${block} / ${panchayat}`;
     }
-    return block;
+    return block || 'मड़ियाहूँ';
   };
 
   // Dynamic Header Info based on active category filter & current works
@@ -1129,8 +1194,37 @@ export default function DevelopmentPage() {
                           >
                             {work.category || 'Development'}
                           </span>
-                          <h3 className="text-sm font-extrabold text-gray-900 leading-tight mb-1 line-clamp-2">{getWorkTitle(work)}</h3>
-                          <p className="text-xs text-gray-500 font-semibold mb-2 line-clamp-1">{work.areaId?.name || work.area?.name || work.location || 'Local Area'}</p>
+                          <div className="mb-1">
+                            {(() => {
+                              const subItems = getWorkSubItems(work);
+                              if (subItems.length > 1) {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] font-black px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                                        {subItems.length} कार्य संकलित
+                                      </span>
+                                    </div>
+                                    <h3 className="text-sm font-extrabold text-gray-900 leading-tight line-clamp-2">
+                                      1. {subItems[0]}
+                                    </h3>
+                                    <p className="text-[11px] text-gray-500 font-medium line-clamp-1">
+                                      2. {subItems[1]} {subItems.length > 2 ? `(+${subItems.length - 2} और)` : ''}
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <h3 className="text-sm font-extrabold text-gray-900 leading-tight line-clamp-2">
+                                  {subItems[0]}
+                                </h3>
+                              );
+                            })()}
+                          </div>
+                          <p className="text-xs text-gray-600 font-semibold mb-2 line-clamp-1 flex items-center gap-1">
+                            <span className="text-gray-400">📍</span>
+                            <span>{getWorkBlock(work)}</span>
+                          </p>
                           
                           {/* Badge */}
                           <div className="mt-auto">
@@ -1194,15 +1288,6 @@ export default function DevelopmentPage() {
 
                   {/* Report Card Page Container */}
                   <div className="w-full bg-white border border-gray-300 rounded-2xl shadow-sm overflow-hidden text-[#1e293b]">
-                    {/* Top Official Banner Graphic with Leaders Name, Designation & Location */}
-                    <div className="w-full bg-white border-b-2 border-[#004b9e] overflow-hidden relative select-none">
-                      <img 
-                        src="/pdfimages/pdf-banner.png" 
-                        alt="Official Development Report Card Banner"
-                        className="w-full h-auto object-contain block"
-                      />
-                    </div>
-
                     <div className="p-4 sm:p-6 bg-white overflow-x-auto">
                       {/* Dynamic Header: Leader, Area, Dynamic Title based on Filter */}
                       <div className="text-center pb-4 border-b border-gray-200">
@@ -1287,8 +1372,23 @@ export default function DevelopmentPage() {
                                 <td className="border border-gray-400 p-2 text-center font-bold text-gray-700">
                                   {idx + 1}
                                 </td>
-                                <td className="border border-gray-400 p-2 font-semibold text-gray-900 leading-snug">
-                                  {getWorkTitle(work)}
+                                <td className="border border-gray-400 p-2 font-semibold text-gray-900 leading-snug align-top">
+                                  {(() => {
+                                    const subItems = getWorkSubItems(work);
+                                    if (subItems.length > 1) {
+                                      return (
+                                        <div className="flex flex-col gap-1.5 py-0.5">
+                                          {subItems.map((sub, sIdx) => (
+                                            <div key={sIdx} className="flex items-start gap-1.5 text-xs text-gray-900">
+                                              <span className="font-extrabold text-blue-600 shrink-0">{sIdx + 1}.</span>
+                                              <span className="font-medium">{sub}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                    return <span>{subItems[0]}</span>;
+                                  })()}
                                 </td>
                                 <td className="border border-gray-400 p-2 text-center font-bold text-gray-800 whitespace-nowrap">
                                   {lengthText}
@@ -1350,15 +1450,6 @@ export default function DevelopmentPage() {
           className="bg-white text-black"
           style={{ width: '1000px', minHeight: '600px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}
         >
-          {/* Top Full Banner Graphic with Leader Designation & Location */}
-          <div style={{ width: '1000px', backgroundColor: '#ffffff', borderBottom: '2px solid #004b9e', overflow: 'hidden', position: 'relative' }}>
-            <img 
-              src="/pdfimages/pdf-banner.png" 
-              alt="Official Development Report Card Banner"
-              style={{ width: '1000px', height: 'auto', display: 'block' }}
-            />
-          </div>
-
           <div style={{ padding: '24px 32px 32px 32px' }}>
             {/* Document Header - Exact layout as user's road report card */}
             <div style={{ textAlign: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '16px' }}>
@@ -1444,8 +1535,23 @@ export default function DevelopmentPage() {
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', textAlign: 'center', fontWeight: 'bold', color: '#475569' }}>
                       {idx + 1}
                     </td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', fontWeight: '700', color: '#0f172a', lineHeight: '1.4' }}>
-                      {getWorkTitle(work)}
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px 8px', fontWeight: '700', color: '#0f172a', lineHeight: '1.4', verticalAlign: 'top' }}>
+                      {(() => {
+                        const subItems = getWorkSubItems(work);
+                        if (subItems.length > 1) {
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {subItems.map((sub, sIdx) => (
+                                <div key={sIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                                  <span style={{ fontWeight: '900', color: '#2563eb' }}>{sIdx + 1}.</span>
+                                  <span>{sub}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return <span>{subItems[0]}</span>;
+                      })()}
                     </td>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px 6px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
                       {lengthText}

@@ -165,9 +165,51 @@ export default function WorkDetailsPage() {
               {work.status || 'In Progress'}
             </span>
           </div>
-          <h2 className="text-xl font-extrabold text-gray-900 leading-snug">
-            {work.title}
-          </h2>
+
+          {/* Title & Sub-items */}
+          {(() => {
+            const raw = (work.title || '').trim();
+            let items = [];
+            if (raw.includes('•') || raw.includes('\n')) {
+              items = raw
+                .split(/(?:•\s*|\t\s*•\s*|(?:\r?\n)+)/)
+                .map(s => s.trim().replace(/^[•*\s-]+/, '').trim())
+                .filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
+            } else if (raw.includes('\t')) {
+              items = raw
+                .split('\t')
+                .map(s => s.trim().replace(/^[•*\s-]+/, '').trim())
+                .filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
+            }
+
+            if (items.length > 1) {
+              return (
+                <div className="flex flex-col gap-2 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-200">
+                      कुल {items.length} कार्य संकलित
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2 bg-gray-50/70 p-3.5 rounded-2xl border border-gray-100">
+                    {items.map((it, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-sm font-bold text-gray-900 leading-snug">
+                        <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span>{it}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <h2 className="text-xl font-extrabold text-gray-900 leading-snug">
+                {work.title}
+              </h2>
+            );
+          })()}
         </div>
 
         {/* Location & Dates */}
@@ -177,7 +219,7 @@ export default function WorkDetailsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span>{work.location || work.area?.name || 'Local Area'}</span>
+            <span>{work.areaId?.name || work.area?.name || work.location || 'Local Area'}</span>
           </div>
           {work.startDate && (
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
