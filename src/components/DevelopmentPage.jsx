@@ -325,6 +325,15 @@ export default function DevelopmentPage() {
     let raw = (w.title || '').trim();
     if (!raw) return ['विकास कार्य'];
 
+    const categoryText = String(w.category || '').toLowerCase();
+    const isRoadPitch = categoryText.includes('पिच') || categoryText.includes('pitch');
+
+    // For "Road Pitch" category, tabs represent metadata columns (length, block, dept, year) rather than multiple works
+    if (isRoadPitch) {
+      const mainPart = raw.split('\t')[0].replace(/^[•*\s-]+/, '').trim();
+      return [mainPart || 'विकास कार्य'];
+    }
+
     // If title has bullets • or tab-bullets or newlines
     if (raw.includes('•') || raw.includes('\n')) {
       const parts = raw
