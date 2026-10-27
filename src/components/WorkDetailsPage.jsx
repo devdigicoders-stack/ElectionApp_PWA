@@ -169,17 +169,39 @@ export default function WorkDetailsPage() {
           {/* Title & Sub-items */}
           {(() => {
             const raw = (work.title || '').trim();
+            const isMetadataPart = (s) => {
+              if (!s || s.length < 2) return true;
+              const str = s.trim();
+              if (str.match(/^(?:2[0-9][-–/][0-9]{2}|202[0-9][-–/]202[0-9]|202[0-9])$/i)) return true;
+              if (str.match(/^(?:बिजनेस\s*प्लान|बिजनेसप्लान|PWD|RES|आर0ई0एस0|आर०ई०एस०|मंडी|मण्डी)$/i)) return true;
+              if (str.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:किमी[0०]?|कि०मी०|कि\.मी\.|km|मी[0०]?|मीटर|meter)$/i)) return true;
+              if (str.match(/^कार्य\s*(?:पूर्ण|प्रगति|स्वीकृत|प्रस्तावित)$/i)) return true;
+              if (str.match(/^(?:प्रस्तावित|स्वीकृत)$/i)) return true;
+              return false;
+            };
+
+            const cleanPartText = (p) => {
+              if (!p) return '';
+              return p
+                .replace(/^[•*\s-]+/, '')
+                .replace(/बिजनेस\s*प्लान/gi, '')
+                .replace(/बिजनेसप्लान/gi, '')
+                .replace(/\b2[0-9][-–/][0-9]{2}\b/g, '')
+                .replace(/\\\\+/g, '')
+                .trim();
+            };
+
             let items = [];
             if (raw.includes('•') || raw.includes('\n')) {
               items = raw
                 .split(/(?:•\s*|\t\s*•\s*|(?:\r?\n)+)/)
-                .map(s => s.trim().replace(/^[•*\s-]+/, '').trim())
-                .filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
+                .map(s => cleanPartText(s))
+                .filter(s => s && s.length > 2 && !isMetadataPart(s));
             } else if (raw.includes('\t')) {
               items = raw
                 .split('\t')
-                .map(s => s.trim().replace(/^[•*\s-]+/, '').trim())
-                .filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
+                .map(s => cleanPartText(s))
+                .filter(s => s && s.length > 2 && !isMetadataPart(s));
             }
 
             if (items.length > 1) {
@@ -204,9 +226,10 @@ export default function WorkDetailsPage() {
               );
             }
 
+            const cleanTitle = cleanPartText(items[0] || raw) || 'विकास कार्य';
             return (
               <h2 className="text-xl font-extrabold text-gray-900 leading-snug">
-                {work.title}
+                {cleanTitle}
               </h2>
             );
           })()}

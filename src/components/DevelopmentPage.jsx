@@ -320,39 +320,57 @@ export default function DevelopmentPage() {
     };
   };
 
+  // Helper to detect metadata fragments (year, department, length, status)
+  const isMetadataPart = (s) => {
+    if (!s || s.length < 2) return true;
+    const str = s.trim();
+    if (str.match(/^(?:2[0-9][-–/][0-9]{2}|202[0-9][-–/]202[0-9]|202[0-9])$/i)) return true;
+    if (str.match(/^(?:बिजनेस\s*प्लान|बिजनेसप्लान|PWD|RES|आर0ई0एस0|आर०ई०एस०|मंडी|मण्डी)$/i)) return true;
+    if (str.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:किमी[0०]?|कि०मी०|कि\.मी\.|km|मी[0०]?|मीटर|meter)$/i)) return true;
+    if (str.match(/^कार्य\s*(?:पूर्ण|प्रगति|स्वीकृत|प्रस्तावित)$/i)) return true;
+    if (str.match(/^(?:प्रस्तावित|स्वीकृत)$/i)) return true;
+    return false;
+  };
+
+  // Helper to clean unwanted metadata residues from work title parts
+  const cleanPartText = (p) => {
+    if (!p) return '';
+    return p
+      .replace(/^[•*\s-]+/, '')
+      .replace(/बिजनेस\s*प्लान/gi, '')
+      .replace(/बिजनेसप्लान/gi, '')
+      .replace(/\b2[0-9][-–/][0-9]{2}\b/g, '')
+      .replace(/\\\\+/g, '')
+      .trim();
+  };
+
   // Helper to split works that contain multiple items in title/description
   const getWorkSubItems = (w) => {
     let raw = (w.title || '').trim();
     if (!raw) return ['विकास कार्य'];
 
-    const categoryText = String(w.category || '').toLowerCase();
-    const isRoadPitch = categoryText.includes('पिच') || categoryText.includes('pitch');
-
-    // For "Road Pitch" category, tabs represent metadata columns (length, block, dept, year) rather than multiple works
-    if (isRoadPitch) {
-      const mainPart = raw.split('\t')[0].replace(/^[•*\s-]+/, '').trim();
-      return [mainPart || 'विकास कार्य'];
-    }
-
-    // If title has bullets • or tab-bullets or newlines
+    // If title has multiple bullet points or multiple lines
     if (raw.includes('•') || raw.includes('\n')) {
       const parts = raw
         .split(/(?:•\s*|\t\s*•\s*|(?:\r?\n)+)/)
-        .map(s => s.trim().replace(/^[•*\s-]+/, '').trim())
-        .filter(Boolean);
+        .map(s => cleanPartText(s))
+        .filter(s => s && s.length > 2 && !isMetadataPart(s));
       
-      const cleanParts = parts.filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
-      if (cleanParts.length > 0) return cleanParts;
+      if (parts.length > 0) return parts;
     }
 
-    // If title has tab characters
+    // If title has tab characters (like Road or Electricity works)
     if (raw.includes('\t')) {
-      const parts = raw.split('\t').map(s => s.trim().replace(/^[•*\s-]+/, '').trim()).filter(Boolean);
-      const cleanParts = parts.filter(p => p.length > 2 && !p.match(/^(?:2[0-9][-–/][0-9]{2}|बिजनेस प्लान|PWD|RES)$/i));
-      if (cleanParts.length > 0) return cleanParts;
+      const parts = raw
+        .split('\t')
+        .map(s => cleanPartText(s))
+        .filter(s => s && s.length > 2 && !isMetadataPart(s));
+
+      if (parts.length > 0) return [parts[0]];
     }
 
-    return [raw.replace(/^[•*\s-]+/, '').trim() || 'विकास कार्य'];
+    const single = cleanPartText(raw);
+    return [single || 'विकास कार्य'];
   };
 
   // Helper to extract clean work title
@@ -404,7 +422,18 @@ export default function DevelopmentPage() {
     if (w.department) return w.department;
     if (w.agency) return w.agency;
 
-    // Check tab-separated columns first
+    const raw = `${w.title || ''} ${w.description || ''}`;
+    if (raw.includes('बिजनेस प्लान') || raw.includes('बिजनेसप्लान')) return 'बिजनेस प्लान';
+    if (raw.includes('PWD') || raw.includes('पी०डब्ल्यू०डी') || raw.includes('लोक निर्माण')) return 'PWD';
+    if (raw.includes('मंडी') || raw.includes('MANDI')) return 'मंडी परिषद';
+    if (raw.includes('PMGSY') || raw.includes('पीएमजीएसवाई')) return 'आर०ई०एस० PMGSY';
+    if (raw.includes('त्वरित')) return 'आर०ई०एस० त्वरित';
+    if (raw.includes('राज्यांश') || raw.includes('राज्यान्श')) return 'आर०ई०एस० राज्यांश';
+    if (raw.includes('जिलांश')) return 'आर०ई०एस० जिलांश';
+    if (raw.includes('निधि')) return 'विधायक निधि';
+    if (raw.includes('RES') || raw.includes('आर०ई०एस') || raw.includes('आर0ई0एस0')) return 'आर०ई०एस०';
+
+    // Check tab-separated columns
     if ((w.title || '').includes('\t')) {
       const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
       for (const p of parts) {
@@ -421,14 +450,9 @@ export default function DevelopmentPage() {
       }
     }
 
-    const text = `${w.title || ''} ${w.description || ''}`.toUpperCase();
-    if (text.includes('PWD') || text.includes('पी०डब्ल्यू०डी') || text.includes('लोक निर्माण')) return 'PWD';
-    if (text.includes('मंडी') || text.includes('MANDI')) return 'मंडी परिषद';
-    if (text.includes('PMGSY') || text.includes('पीएमजीएसवाई')) return 'आर०ई०एस० PMGSY';
-    if (text.includes('त्वरित') || text.includes('आर०ई०एस० त्वरित') || text.includes('RES TVARIT')) return 'आर०ई०एस० त्वरित';
-    if (text.includes('राज्यांश') || text.includes('राज्यान्श')) return 'आर०ई०एस० राज्यांश';
-    if (text.includes('जिलांश')) return 'आर०ई०एस० जिलांश';
-    if (text.includes('RES') || text.includes('आर०ई०एस')) return 'आर०ई०एस०';
+    const cat = String(w.category || '');
+    if (cat.includes('विद्युत') || cat.includes('बिजली')) return 'विद्युत विभाग';
+    if (cat.includes('रोड') || cat.includes('पिच') || cat.includes('सड़क')) return 'PWD';
     return w.category || 'PWD';
   };
 
@@ -436,20 +460,16 @@ export default function DevelopmentPage() {
     if (w.financialYear) return w.financialYear;
     if (w.year) return w.year;
 
-    // Check tab-separated columns
-    if ((w.title || '').includes('\t')) {
-      const parts = w.title.split('\t').map(s => s.trim()).filter(Boolean);
-      for (const p of parts) {
-        const yMatch = p.match(/\b(2[0-9][-–/][0-9]{2})\b/);
-        if (yMatch) return yMatch[1];
-      }
+    const text = `${w.title || ''} ${w.description || ''}`;
+    // Match all financial year patterns like 23-24, 25-26
+    const matches = text.match(/\b(2[0-9][-–/][0-9]{2})\b/g);
+    if (matches && matches.length > 0) {
+      const unique = [...new Set(matches)];
+      return unique.join(', ');
     }
 
-    const text = `${w.title || ''} ${w.description || ''}`;
     const yrMatch = text.match(/20(2[0-9])[-–/](2[0-9])/);
     if (yrMatch) return `${yrMatch[1]}-${yrMatch[2]}`;
-    const shortYrMatch = text.match(/\b(2[0-9][-–/][0-9]{2})\b/);
-    if (shortYrMatch) return shortYrMatch[1];
 
     if (w.startDate) {
       const yr = new Date(w.startDate).getFullYear().toString().slice(-2);
