@@ -1321,10 +1321,10 @@ export default function DevelopmentPage() {
                       {/* Dynamic Header: Leader, Area, Dynamic Title based on Filter */}
                       <div className="text-center pb-4 border-b border-gray-200">
                         <h2 className="text-lg sm:text-xl font-black text-[#dc2626] tracking-wide mb-0.5">
-                          {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
+                          {config?.branding?.leaderName || config?.tenant?.name || 'जनप्रतिनिधि'}
                         </h2>
                         <h3 className="text-sm sm:text-base font-extrabold text-[#7c2d12] mb-1">
-                          {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
+                          {config?.tenant?.constituency ? (config.tenant.constituency + ' विधानसभा क्षेत्र') : (config?.tenant?.name || '')}
                         </h3>
                         <h4 className="text-base sm:text-lg font-black text-[#0f766e] flex items-center justify-center gap-2">
                           <span>{bannerInfo.superTitle} — रिपोर्ट कार्ड</span>
@@ -1483,10 +1483,10 @@ export default function DevelopmentPage() {
             {/* Document Header - Exact layout as user's road report card */}
             <div style={{ textAlign: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '16px' }}>
               <h1 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: '900', color: '#dc2626' }}>
-                {config?.branding?.leaderName || 'डॉ. आर. के. पटेल, विधायक, मड़ियाहूँ'}
+                {config?.branding?.leaderName || config?.tenant?.name || 'जनप्रतिनिधि'}
               </h1>
               <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '800', color: '#7c2d12' }}>
-                {config?.tenant?.constituency || 'मड़ियाहूँ विधानसभा क्षेत्र, 370'}
+                {config?.tenant?.constituency ? (config.tenant.constituency + ' विधानसभा क्षेत्र') : (config?.tenant?.name || '')}
               </h2>
               <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '900', color: '#0f766e' }}>
                 {bannerInfo.superTitle} — रिपोर्ट कार्ड
