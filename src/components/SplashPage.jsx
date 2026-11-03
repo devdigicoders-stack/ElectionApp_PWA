@@ -195,17 +195,10 @@ export default function SplashPage() {
             </div>
           )}
 
-          {/* Constituency or Organization */}
-          {activeTenant?.name && activeTenant.name !== activeTitle && (
-            <p className="text-xs font-medium text-white/75 tracking-wider uppercase mb-3 z-10">
-              {activeTenant.name}
-            </p>
-          )}
-
           {/* Tagline */}
           {activeTagline && (
             <p className="text-sm sm:text-base text-white/90 font-medium italic max-w-xs sm:max-w-sm mt-1 z-10 leading-relaxed drop-shadow">
-              “{activeTagline}”
+              {activeTagline.replace(/^[“”"']+|[“”"']+$/g, '').trim()}
             </p>
           )}
         </div>
